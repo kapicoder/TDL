@@ -1,0 +1,6 @@
+id,mmsi,length,width,polarMode,centerLookAngle,heightspace,widthspace,path
+Ship_C01S01N0001,477939300.0,138.0,26.0,DH,42.51,1.702183,1.124222,Cargo\AggregatesCarrier
+Ship_C01S01N0002,371469000.0,87.0,12.0,DH,42.51,1.701591,1.124222,Cargo\AggregatesCarrier
+Ship_C01S02N0001,351445000.0,229.0,32.0,DH,27.28,1.72615,1.124222,Cargo\BulkCarrier
+Ship_C01S02N0002,477802800.0,180.0,30.0,DH,27.28,1.726202,1.124222,Cargo\BulkCarrier
+Ship_C01S02N0003,412753980.0,150.0,22.0,DV,40.36,1.730058,1.124222,Cargo\BulkCarrier

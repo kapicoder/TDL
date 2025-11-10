@@ -1,0 +1,112 @@
+{
+
+    "path":{
+        "?dataset_path": "The dataset path, whish stores the datasets",
+        "dataset_path":"./dataset",
+
+        "?AIR-SARShip_path": "The AIR-SARShip dataset path",
+        "AIR-SARShip_path":"./dataset/AIR-SARShip",
+  
+        "?MAR1_path":"The MAR1_path",
+        "MAR1_path":"./dataset/MAR1/MAR1_reset",
+
+       
+        "?train_result_path":"The path to store the training results",
+        "train_result_path":"./result/train_result",
+
+        "?test_result_path":"The path to store the testing results",
+        "test_result_path":"./result/test_result"
+        
+    },
+
+
+    "tiff_cut":{
+        "?source_image":"Path to the large TIFF image that needs to be sliced",
+        "source_image":"dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-1.tiff",
+
+        "?source_label":"YOLO-format label file (normalized coords) that matches the source image",
+        "source_label":"dataset/AIR-SARShip-1.0/train/labels/SARShip-1.0-1.txt",
+
+        "?output_dir":"Directory that will receive the cropped tiles (images/ & labels/)",
+        "output_dir":"dataset/AIR-SARShip-1.0/data_spilt",
+
+        "?tile_size":"Tile size in pixels (square tiles)",
+        "tile_size":256,
+
+        "?overlap_rate":"Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
+        "overlap_rate":0.5,
+
+        "?save_empty":"Whether to export tiles without any boxes",
+        "save_empty":true,
+
+        "?output_ext":"Image extension for the exported tiles",
+        "output_ext":".tiff"
+    },
+    
+    "pretrained_model":{
+        "?pretrained_model_path":"The pre_trained_model uesd for fine-tuning or testing",
+        "pretrained_model_path":"yolo11m.pt"
+    },
+
+    "train":{
+        "?train_dataset":"The dataset used for training",
+        "train_dataset":"MAR1",
+
+        "?train_MAR1":"The training parameters for MAR1 dataset",    
+        "train_MAR1":{
+            "?batch_size":"The batch size used for training",
+            "batch_size":16,
+
+            "?img_size":"The image size used for training",
+            "img_size":256,
+
+            "?epochs":"The number of epochs used for training",
+            "epochs":200,
+
+            "?device":"The device used for training",
+            "device":"cuda",
+
+            "?lr":"The learning rate used for training",
+            "lr":0.001,
+
+            "?lrf":"Learning Rate Factor",
+            "lrf":0.001,
+
+            "?patience":"The patience used for training, if serveral epochs no improvement, then stop training",
+            "patience":10,
+
+            "?data_yaml_path":"The data yaml path for MAR1 dataset",
+            "data_yaml_path":"dataset/MAR1/MAR1_reset/data.yaml"
+        }
+    },
+
+    "validate":{
+        "?validate_dataset":"The dataset used for validation",
+        "validate_dataset":"MAR1",
+        
+        "validate_MAR1":{
+            "?subdataset":"The subdataset used for validation, may containing: test,train,val",
+            "subdataset":"test",
+
+            "?validate_model_path":"The model path used for validation",
+            "validate_model_path":"./result/train_result/MAR1_yolo11m/weights/best.pt",
+
+            "?data_yaml_path":"The data yaml path for MAR1 dataset",
+            "data_yaml_path":"dataset/MAR1/MAR1_reset/data.yaml"
+        }
+    },
+
+    "test":{
+        "?test_dataet":"The dataset used for testing",
+        "test_dataset":"MAR1",
+        
+        "?test_img_path":"The image path used for testing",
+        "test_img_path":"dataset/MAR1/MAR1_reset/test/images/0505.jpg",
+
+        "?output_path":"The output path to store the testing results",
+        "output_path":"./result/test_results",
+
+        "?weights_path":"The model weights path used for testing",
+        "weights_path":"./result/train_result/MAR1_yolo11m/weights/best.pt"
+    }
+}
