@@ -57,12 +57,12 @@ def visual_img(tiff_path, label_path, use_latlon):
         print("TIFF metadata:", dataset_meta)
         print("Affine transform:", transform_affine)
         print(
-            f"Image center @ pixel ({x_mid}, {y_mid}) -> ({longitude:.6f}, {latitude:.6f})"
+            f"Image center @ pixel ({x_mid}, {y_mid}) -> ({latitude:.6f}, {longitude:.6f})"
         )
         axes[0].text(
             0.5,
             -0.03,
-            f"({longitude:.4f}, {latitude:.4f})",
+            f"({latitude:.4f}, {longitude:.4f})",
             size=12,
             ha="center",
             va="center",
@@ -109,18 +109,18 @@ def visual_img(tiff_path, label_path, use_latlon):
                 )
                 print(
                     f"cls {cls_id} bbox center ({center_x:.1f}, {center_y:.1f}) px -> "
-                    f"({center_lon:.6f}, {center_lat:.6f})"
+                    f"({center_lat:.6f}, {center_lon:.6f})"
                 )
                 print(
-                    f"    top-left ({x1:.1f}, {y1:.1f}) px -> ({top_left_lon:.6f}, {top_left_lat:.6f})"
+                    f"    top-left ({x1:.1f}, {y1:.1f}) px -> ({top_left_lat:.6f}, {top_left_lon:.6f})"
                 )
                 print(
-                    f"    bottom-right ({x2:.1f}, {y2:.1f}) px -> ({bottom_right_lon:.6f}, {bottom_right_lat:.6f})"
+                    f"    bottom-right ({x2:.1f}, {y2:.1f}) px -> ({bottom_right_lat:.6f}, {bottom_right_lon:.6f})"
                 )
                 axes[1].text(
                     center_x,
                     center_y,
-                    f"{center_lon:.4f}\n{center_lat:.4f}",
+                    f"{center_lat:.4f}\n{center_lon:.4f}",
                     color="yellow",
                     fontsize=6,
                     ha="center",
