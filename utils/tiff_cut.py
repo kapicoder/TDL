@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image
 import rasterio
 from rasterio.windows import Window
-
+from affine import Affine
 
 with open("./config.json", "r") as cf:
     CONFIG = json.load(cf)
@@ -140,7 +140,7 @@ def save_label(label_path: Path, boxes: Iterable[Tuple[int, float, float, float,
     lines = [f"{cls_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}" for cls_id, xc, yc, bw, bh in boxes]
     label_path.write_text("\n".join(lines), encoding="utf-8")
 
-def save_image(image_path: Path, arr: np.ndarray,meta: dict) -> None:
+def save_image(image_path: Path, arr: np.ndarray,meta: dict,transform_matrix) -> None:
     #将数据的meta一同写入tiff文件
     with rasterio.open(
         image_path,
@@ -151,7 +151,7 @@ def save_image(image_path: Path, arr: np.ndarray,meta: dict) -> None:
         count=arr.shape[0],
         dtype=arr.dtype,
         crs=meta['crs'],
-        transform=meta['transform'],
+        transform=transform_matrix,
     ) as dst:
         dst.write(arr)
 def cut_tiff(settings: CutterSettings) -> None:
@@ -181,10 +181,13 @@ def cut_tiff(settings: CutterSettings) -> None:
            
             tile_name = f"{settings.image_path.stem}_r{row:05d}_c{col:05d}"
             image_path = image_dir / f"{tile_name}{settings.output_ext}"
+            
             label_path = label_dir / f"{tile_name}.txt"
 
             save_label(label_path, tile_boxes)
-            save_image(image_path, tile_img,dataset.meta)
+            # 依据切片窗口计算新的仿射变换矩阵，使其对应裁剪后的图块
+            new_transform_matrix = rasterio.windows.transform(window, dataset.transform)
+            save_image(image_path, tile_img, dataset.meta, new_transform_matrix)
             total_tiles += 1
             if tile_boxes:
                 tiles_with_boxes += 1
