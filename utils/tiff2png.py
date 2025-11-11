@@ -37,7 +37,7 @@ def convert_tiff_to_png(src: Path, dst: Path, overwrite: bool) -> None:
     with Image.open(src) as img:
         png_ready = ensure_png_ready(img)
         png_ready.save(dst, format="PNG")
-    print(f"[ok] {src} -> {dst}")
+    #print(f"[ok] {src} -> {dst}")
 
 
 def parse_args() -> argparse.Namespace:

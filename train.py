@@ -17,7 +17,7 @@ def train_model(
     dataset_name=config["train"]["train_dataset"]
     dataset_cfg=config["train"]["train_"+dataset_name]
 
-    res_name=dataset_name+"_"+config["pretrained_model"]["pretrained_model_path"].split(".")[0]
+    res_name=dataset_name+"_"+config["pretrained_model"]["pretrained_model_name"]
     lr0=dataset_cfg["lr"]
     lrf=dataset_cfg["lrf"]
     weigths_path = config["pretrained_model"]["pretrained_model_path"]

@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
         "--tiles-dir",
         type=Path,
         default=None,
-        help="裁剪输出目录（包含 images/ 与 labels/）",
+        help="裁剪输出根目录（实际会在其下按大图名称创建子目录）",
     )
     parser.add_argument("--tile-size", type=int, default=None, help="裁剪tile尺寸")
     parser.add_argument("--overlap", type=float, default=None, help="相邻tile重叠率")
@@ -62,10 +62,10 @@ def parse_args() -> argparse.Namespace:
         "--png-dir",
         type=Path,
         default=None,
-        help="PNG tile存放目录（默认 tiles-dir/images_png）",
+        help="PNG tile存放目录（默认 <tiles-dir>/<影像名>/images_png）",
     )
     parser.add_argument("--weights", type=Path, default=None, help="推理所用权重路径")
-    parser.add_argument("--conf", type=float, default=0.25, help="推理置信度阈值")
+    parser.add_argument("--conf", type=float, default=0.35, help="推理置信度阈值")
     parser.add_argument("--iou", type=float, default=0.6, help="推理IOU阈值")
     parser.add_argument("--imgsz", type=int, default=640, help="推理输入尺寸")
     parser.add_argument("--batch", type=int, default=16, help="推理批大小")
@@ -115,6 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--use-latlon",
         action="store_true",
+        default=True,
         help="可视化时输出经纬度坐标",
     )
     parser.add_argument(
@@ -132,6 +133,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--verbose",
         action="store_true",
+        default=True,
         help="输出关键配置摘要，便于确认当前运行参数",
     )
     return parser.parse_args()
@@ -328,7 +330,8 @@ def load_defaults(args: argparse.Namespace):
         label_path = str(image_path).replace("images","labels").replace(".tiff", ".txt")
         label_path = Path(label_path)
         print("label_path:",label_path)
-    tiles_dir = args.tiles_dir or _resolve_path(test_cfg.get("output_path")) or Path("./tiff_tiles")
+    tiles_root = args.tiles_dir or _resolve_path(test_cfg.get("output_path")) or Path("./tiff_tiles")
+    tiles_dir = tiles_root / image_path.stem
     tile_size = args.tile_size or int(tiff_cfg.get("tile_size", 512))
     overlap = args.overlap
     if overlap is None:
