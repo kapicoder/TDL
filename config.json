@@ -98,15 +98,28 @@
 
     "test":{
         "?test_dataet":"The dataset used for testing",
-        "test_dataset":"MAR1",
-        
-        "?test_img_path":"The image path used for testing",
-        "test_img_path":"dataset/MAR1/MAR1_reset/test/images/0505.jpg",
+        "test_dataset":"AIR-SARShip",
 
-        "?output_path":"The output path to store the testing results",
-        "output_path":"./result/test_results",
+        "test_MAR1":{
+            "?test_img_path":"The image path used for testing",
+            "test_img_path":"dataset/MAR1/MAR1_reset/test/images/0505.jpg",
 
-        "?weights_path":"The model weights path used for testing",
-        "weights_path":"./result/train_result/MAR1_yolo11m/weights/best.pt"
+            "?output_path":"The output path to store the testing results",
+            "output_path":"./result/test_results",
+
+            "?weights_path":"The model weights path used for testing",
+            "weights_path":"./result/train_result/MAR1_yolo11m/weights/best.pt"
+        },
+
+        "test_AIR-SARShip":{
+            "?test_img_path":"The image path used for testing",
+            "test_img_path":"dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-1.tiff",
+
+            "?output_path":"The output path to store the testing results",
+            "output_path":"result/test_results",
+
+            "?weights_path":"The model weights path used for testing",
+            "weights_path":"result/train_result/MAR1_yolo11m/weights/best.pt"
+        }
     }
 }
