@@ -162,5 +162,13 @@
             "?weights_path":"The model weights path used for testing",
             "weights_path":"result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt"
         }
+    },
+
+    "visualization":{
+        "?target_patch_size":"Detection crop size (pixels) when exporting target-centered sub-images",
+        "target_patch_size":512,
+
+        "?patch_output_dir":"Directory used to store exported detection sub-images",
+        "patch_output_dir":"./result/test_results/"
     }
 }
