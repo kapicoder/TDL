@@ -136,6 +136,24 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="输出关键配置摘要，便于确认当前运行参数",
     )
+    parser.add_argument(
+        "--export-detection-patches",
+        action="store_true",
+        default=True,
+        help="导出每个预测框的目标居中子图",
+    )
+    parser.add_argument(
+        "--patch-output-dir",
+        type=Path,
+        default=None,
+        help="目标子图输出目录（默认读取 visualization.patch_output_dir）",
+    )
+    parser.add_argument(
+        "--patch-size",
+        type=int,
+        default=None,
+        help="目标子图尺寸（像素），默认读取 visualization.target_patch_size",
+    )
     return parser.parse_args()
 
 
@@ -511,6 +529,9 @@ def main() -> None:
             gt_label_path=gt_label_for_vis,
             use_latlon=args.use_latlon,
             block=True,
+            export_patches=args.export_detection_patches,
+            patch_output_dir=args.patch_output_dir,
+            patch_size=args.patch_size,
         )
     else:
         print("[完成] 已生成预测标签，未按照 --no-visualize 进行可视化")
