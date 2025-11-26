@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import json
 from ultralytics import YOLO  # type: ignore
-
+from utils import tiff2png
 with open("./config.json", "r") as cf:
     config = json.load(cf)
 
@@ -142,26 +142,6 @@ def find_label_file(image_path: Path) -> Optional[Path]:
     return None
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compare original, predicted, and ground-truth annotations.")
-    
-    
-    parser.add_argument("--image", type=Path, help="Path to the input image to be predicted.")
-    parser.add_argument(
-        "--weights",
-        type=Path,
-        default="train_result/mar_reset_yolo11m/weights/best.pt",
-        help="Path to model weights (defaults to latest result/**/weights/best.pt).",
-    )
-    
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default="./test_results",
-        help="Output path or directory for the composed comparison image.",
-    )
-    return parser.parse_args()
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare original, predicted, and ground-truth annotations.")
@@ -170,15 +150,32 @@ def main() -> None:
     parser.add_argument(
         "--weights",
         type=Path,
-        default="train_result/mar_reset_yolo11m/weights/best.pt",
+        default="model/best.pt",
         help="Path to model weights (defaults to latest result/**/weights/best.pt).",
     )
     
     parser.add_argument(
         "--output",
         type=Path,
-        default="./test_results",
+        default="./result/result_single",
         help="Output path or directory for the composed comparison image.",
+    )
+    parser.add_argument(
+        "--conf",
+        type=float,
+        default=0.25,
+        help="Object confidence threshold.",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda",
+        help="Device to perform inference on (default: cpu).",
+    )
+    parser.add_argument(
+        "--no_label",
+        action="store_true",
+        help="Use label file if it exists.",
     )
     args=parser.parse_args()
     image_path = args.image
@@ -191,10 +188,12 @@ def main() -> None:
         raise FileNotFoundError(f"Model weights not found: {weights_path}")
 
     model = YOLO(str(weights_path))
+    img=Image.open(image_path)
+    img = tiff2png.ensure_png_ready(img).convert("RGB")
     results = model.predict(
-        source=str(image_path),
+        source=img,
         conf=args.conf,
-        imgsz=args.imgsz,
+        imgsz=img.size,
         device=args.device,
         verbose=False,
         iou=0.6,
@@ -204,16 +203,18 @@ def main() -> None:
         raise RuntimeError("Ultralytics did not return any prediction results.")
 
     result = results[0]
-    pred_boxes
-    with Image.open(image_path).convert("RGB") as base_img:
+    
+    with Image.open(image_path) as base_img:
+        label_path = None
+        base_img = tiff2png.ensure_png_ready(base_img).convert("RGB")   
         class_names = {int(k): v for k, v in model.names.items()}
         original_panel = base_img.copy()
-
         pred_boxes = prediction_boxes(result)
         prediction_panel = draw_boxes(base_img.copy(), pred_boxes, class_names)
-
-        label_path = find_label_file(image_path)
+        if not args.no_label:
+            label_path = find_label_file(image_path)
         gt_boxes: List[Tuple[float, float, float, float, float, int]] = []
+        #label_path = find_label_file(image_path)
         if label_path is not None:
             gt_boxes = load_ground_truth_boxes(label_path, base_img.width, base_img.height)
         ground_truth_panel = draw_boxes(base_img.copy(), gt_boxes, class_names)
@@ -231,7 +232,9 @@ def main() -> None:
         composite.paste(prediction_panel, (width, 0))
         composite.paste(ground_truth_panel, (width * 2, 0))
 
-    output_path = args.output
+    output_path = (Path(args.output) / image_path.name).with_suffix(".png")
+    if not output_path.parent.exists():
+        output_path.parent.mkdir(parents=True)
     composite.save(output_path)
 
     print(f"Detections: {len(pred_boxes)}")

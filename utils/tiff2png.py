@@ -31,7 +31,7 @@ def ensure_png_ready(img: Image.Image) -> Image.Image:
 
 def convert_tiff_to_png(src: Path, dst: Path, overwrite: bool) -> None:
     if dst.exists() and not overwrite:
-        print(f"[skip] {dst} (exists)")
+        #print(f"[skip] {dst} (exists)")
         return
     dst.parent.mkdir(parents=True, exist_ok=True)
     with Image.open(src) as img:

@@ -162,8 +162,10 @@ def cut_tiff(settings: CutterSettings) -> None:
 
     dataset = rasterio.open(settings.image_path)
     width, height = dataset.width, dataset.height
-    boxes = read_yolo_labels(settings.label_path, width, height)
-
+    if settings.label_path.exists():
+        boxes = read_yolo_labels(settings.label_path, width, height)
+    else:
+        boxes = []
     total_tiles = 0
     tiles_with_boxes = 0
 
@@ -172,7 +174,10 @@ def cut_tiff(settings: CutterSettings) -> None:
             w = min(settings.tile_size, width - col)
             h = min(settings.tile_size, height - row)
             bounds = (col, row, col + w, row + h)
-            tile_boxes = intersect_boxes(boxes, bounds)
+            if settings.label_path.exists():
+                tile_boxes = intersect_boxes(boxes, bounds)
+            else:
+                tile_boxes = []
             if not tile_boxes and not settings.save_empty:
                 continue
 

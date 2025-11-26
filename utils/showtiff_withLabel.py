@@ -84,8 +84,10 @@ def _draw_panel(
     empty_message: str,
     annotate_ids: bool = False,
     id_prefix: str = "#",
+    write_info_text: bool = True,
 ):
-    ax.imshow(image_array, cmap="gray")
+    img_for_draw = _prepare_image_for_save(image_array)
+    ax.imshow(img_for_draw, cmap="gray")
     ax.set_title(title)
     ax.axis("off")
     if not boxes:
@@ -129,7 +131,7 @@ def _draw_panel(
         elif use_latlon:
             print(f"cls {cls_id}: CRS missing, cannot convert pixel coordinates to lon/lat.")
 
-    if bbox_info_lines:
+    if bbox_info_lines and write_info_text:
         ax.text(
             0.5,
             -0.02,
@@ -140,6 +142,7 @@ def _draw_panel(
             fontsize=11,
             color=edge_color,
         )
+    return bbox_info_lines
 
 
 def _export_detection_patches(
@@ -175,7 +178,8 @@ def _export_detection_patches(
         if patch.size == 0:
             continue
         fig, ax = plt.subplots(figsize=(4, 4.5), constrained_layout=True)
-        ax.imshow(patch, cmap="gray")
+        patch_to_show = _prepare_image_for_save(patch)
+        ax.imshow(patch_to_show, cmap="gray")
         ax.set_title(f"Detection #{idx}")
         ax.axis("off")
         rect = plt.Rectangle(
@@ -205,7 +209,7 @@ def _export_detection_patches(
         )
         save_path = detection_dir / f"{image_name}_det{idx}.png"
         fig.savefig(save_path, dpi=200, bbox_inches="tight")
-        print(f"[导出] 目标子图 -> {save_path}")
+        #print(f"[导出] 目标子图 -> {save_path}")
         plt.close(fig)
         rendered_patches.append(
             {
@@ -219,6 +223,50 @@ def _export_detection_patches(
     return rendered_patches
 
 
+def _save_panel_image(
+    image_array: np.ndarray,
+    boxes: List[dict],
+    title: str,
+    save_path: Path,
+    transform_affine,
+    geo_transformer,
+    use_latlon: bool,
+    edge_color: str,
+    empty_message: str,
+    annotate_ids: bool = False,
+    id_prefix: str = "#",
+):
+    """Render a single panel image and persist it to disk."""
+    fig, ax = plt.subplots(figsize=(8, 8))
+    bbox_info_lines = _draw_panel(
+        ax,
+        image_array,
+        boxes,
+        title=title,
+        transform_affine=transform_affine,
+        geo_transformer=geo_transformer,
+        use_latlon=use_latlon,
+        edge_color=edge_color,
+        empty_message=empty_message,
+        annotate_ids=annotate_ids,
+        id_prefix=id_prefix,
+        write_info_text=False,
+    )
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return bbox_info_lines
+
+
+def _prepare_image_for_save(img: np.ndarray) -> np.ndarray:
+    """Convert image to a format acceptable by plt.imsave."""
+    if img.ndim == 3:
+        if img.shape[2] == 1:
+            return img[:, :, 0]  # squeeze single channel
+        if img.shape[2] not in (3, 4):
+            return img[:, :, 0]  # fallback to first channel for unsupported channel counts
+    return img
+
+
 def visual_img(
     tiff_path: str,
     pred_label_path: str | None = None,
@@ -227,8 +275,18 @@ def visual_img(
     block: bool = True,
     export_patches: bool = False,
     patch_output_dir: str | Path | None = None,
-    patch_size: int | None = None,
+    patch_size: int | None = None
 ):
+    
+    # 输出路径定义
+    output_dir = Path(patch_output_dir or DEFAULT_PATCH_DIR) / Path(tiff_path).stem
+    output_dir.mkdir(parents=True, exist_ok=True)
+    store_path = output_dir / "result.png"
+    original_png_path = output_dir / "original.png"
+    gt_png_path = output_dir / "origin_label.png"
+    pred_png_path = output_dir / "predicted.png"
+    annotation_txt_path = output_dir / "annotations.txt"
+    
     # 打开 TIFF 文件
     with rasterio.open(tiff_path) as dataset:
         img = dataset.read()
@@ -236,8 +294,8 @@ def visual_img(
         crs = dataset.crs
         width = dataset.width
         height = dataset.height
-        dataset_meta = dataset.meta
-
+        
+    #获得地理转化矩阵
     geo_transformer = None
     if Transformer is None and use_latlon:
         print(
@@ -250,17 +308,29 @@ def visual_img(
         print(
             "Warning: TIFF file has no CRS; geographic coordinates will be reported in the original projection."
         )
-
+        
+    # 将图像转换为可显示的格式
     img = img.astype(np.uint8)
     display_img = img.transpose(1, 2, 0)
+    
+    # 载入预测标签
     show_pred_panel = pred_label_path is not None
-    panel_cols = 3 if show_pred_panel else 2
+    show_original_panel = gt_label_path is not None
+    gt_boxes = _load_boxes(gt_label_path, width, height) if gt_label_path else []
     pred_boxes: List[dict] = []
     if show_pred_panel:
         pred_boxes = _load_boxes(pred_label_path, width, height)
         for idx, box in enumerate(pred_boxes, start=1):
             box["id"] = idx
+            
+    # 计算输出图像轴的数量
+    panel_cols = 3 
+    if not show_pred_panel :
+        panel_cols -= 1
+    if not show_original_panel:
+        panel_cols -= 1
 
+    # 导出预测标签
     patch_imgs: List[dict] = []
     if export_patches and pred_boxes:
         patch_dir = Path(patch_output_dir or DEFAULT_PATCH_DIR)
@@ -275,17 +345,26 @@ def visual_img(
             geo_transformer=geo_transformer if use_latlon else None,
             use_latlon=use_latlon,
         )
+    
+    # 保存原始图像
+    display_img_to_save = _prepare_image_for_save(display_img)
+    if display_img_to_save.ndim == 2:
+        plt.imsave(original_png_path, display_img_to_save, cmap="gray")
+    else:
+        plt.imsave(original_png_path, display_img_to_save)
 
-    fig_main, axes_main = plt.subplots(1, panel_cols, figsize=(6 * panel_cols, 6), constrained_layout=True)
+    # 创建主图
+    fig_main, axes_main = plt.subplots(1, panel_cols, figsize=(6 * panel_cols, 6))
     if panel_cols == 1:
         axes_main = [axes_main]
     else:
         axes_main = list(np.ravel(axes_main))
-
+        
+    # 显示原始图像
     ax_original = axes_main[0]
     x_mid = width // 2
     y_mid = height // 2
-    ax_original.imshow(display_img, cmap="gray")
+    ax_original.imshow(_prepare_image_for_save(display_img), cmap="gray")
     ax_original.set_title("original image")
     ax_original.axis("off")
     if use_latlon and geo_transformer is not None:
@@ -296,35 +375,29 @@ def visual_img(
         print(
             f"Image center @ pixel ({x_mid}, {y_mid}) -> ({latitude:.6f}, {longitude:.6f})"
         )
-        ax_original.text(
-            0.5,
-            -0.03,
-            f"center (lat {latitude:.4f}, lon {longitude:.4f})",
-            size=12,
-            ha="center",
-            va="center",
-            transform=ax_original.transAxes,
-        )
     elif use_latlon:
         print("Skipping lon/lat annotation because CRS information is unavailable.")
+    # 显示原始标签的数据
+    if gt_label_path is not None:
+        gt_axis_index = 1 if panel_cols > 1 else 0
+        ax_gt = axes_main[gt_axis_index]
+        _draw_panel(
+            ax_gt,
+            display_img,
+            gt_boxes,
+            title="origin label",
+            transform_affine=transform_affine,
+            geo_transformer=geo_transformer,
+            use_latlon=use_latlon,
+            edge_color="lime",
+            empty_message="no original label",
+            write_info_text=False,
+        )
 
-    gt_axis_index = 1 if panel_cols > 1 else 0
-    ax_gt = axes_main[gt_axis_index]
-    gt_boxes = _load_boxes(gt_label_path, width, height)
-    _draw_panel(
-        ax_gt,
-        display_img,
-        gt_boxes,
-        title="origin label",
-        transform_affine=transform_affine,
-        geo_transformer=geo_transformer,
-        use_latlon=use_latlon,
-        edge_color="lime",
-        empty_message="no original label",
-    )
-
+    # 显示预测标签
     if show_pred_panel:
-        ax_pred = axes_main[2]
+        pred_index= 2 if show_original_panel else 1
+        ax_pred = axes_main[pred_index]
         _draw_panel(
             ax_pred,
             display_img,
@@ -336,17 +409,65 @@ def visual_img(
             edge_color="orange",
             empty_message="no predict label",
             annotate_ids=True,
+            write_info_text=False,
         )
 
-    plt.show(block=False if patch_imgs else block)
+    # 保存主图像
+    fig_main.savefig(store_path, dpi=300,bbox_inches='tight')
+    
+    # 显示预测标签
+    if patch_imgs:
+        plt.show(block=False)
+    else:
+        plt.show(block=block)
 
+    # 逐份输出单独的标注图像
+    gt_lines_for_file: List[str] = []
+    if gt_label_path is not None:
+        gt_lines_for_file = _save_panel_image(
+            display_img,
+            gt_boxes,
+            title="origin label",
+            save_path=gt_png_path,
+            transform_affine=transform_affine,
+            geo_transformer=geo_transformer,
+            use_latlon=use_latlon,
+            edge_color="lime",
+            empty_message="no original label",
+        )
+        
+    # 逐份输出单独的预测标签
+    if show_pred_panel:
+        pred_lines_for_file = _save_panel_image(
+            display_img,
+            pred_boxes,
+            title="Predicted Results",
+            save_path=pred_png_path,
+            transform_affine=transform_affine,
+            geo_transformer=geo_transformer,
+            use_latlon=use_latlon,
+            edge_color="orange",
+            empty_message="no predict label",
+            annotate_ids=True,
+        )
+    else:
+        pred_lines_for_file = []
+
+    # 组合标注文本到独立的 txt 文件
+    annotation_lines: List[str] = []
+    if pred_lines_for_file:
+        annotation_lines.extend(pred_lines_for_file)
+    with annotation_txt_path.open("w", encoding="utf-8") as ann_fp:
+        ann_fp.write("\n".join(annotation_lines))
+
+    #输出展示部分识别结果的子图
     if patch_imgs:
         preview = min(4, len(patch_imgs))
         fig_patch, axes_patch = plt.subplots(1, preview, figsize=(5 * preview, 5), constrained_layout=True)
         if preview == 1:
             axes_patch = [axes_patch]
         for ax, patch_info in zip(axes_patch, patch_imgs[:preview]):
-            ax.imshow(patch_info["img"], cmap="gray")
+            ax.imshow(_prepare_image_for_save(patch_info["img"]), cmap="gray")
             ax.set_title(patch_info["title"])
             ax.axis("off")
             rect = plt.Rectangle(
@@ -368,8 +489,11 @@ def visual_img(
                 fontsize=10,
             )
         plt.show(block=block)
+        plt.close(fig_patch)
     else:
         plt.show(block=block)
+    plt.close(fig_main)
+    
 
 
 if __name__ == "__main__":
@@ -407,7 +531,6 @@ if __name__ == "__main__":
     gt_label_path = args.gt_label_path
     if gt_label_path is None:
         gt_label_path = args.tiff_path.replace("images", "labels").replace(".tiff", ".txt")
-    print(gt_label_path)
     visual_img(
         tiff_path=args.tiff_path,
         pred_label_path=pred_label_path,

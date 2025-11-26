@@ -461,8 +461,7 @@ def main() -> None:
 
     # 1) 切图
     if not args.skip_cut:
-        if label_path is None:
-            raise ValueError("执行切图需要 --label 或配置中的 tiff_cut.source_label")
+        label_path
         ensure_tiles(
             image_path=image_path,
             label_path=label_path,
