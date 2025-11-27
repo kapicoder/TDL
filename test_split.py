@@ -13,6 +13,7 @@ from utils.tiff_cut import CutterSettings, cut_tiff
 from utils.tiff2png import convert_tiff_to_png, iter_tiff_files
 from utils.showtiff_withLabel import visual_img
 
+print ("new feature test")
 with open("./config.json", "r", encoding="utf-8") as cf:
     CONFIG = json.load(cf)
 
@@ -121,13 +122,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--visualize-original-label",
         action="store_true",
-        default=True,
+        default=False,
         help="可选：在展示预测结果的同时输出原始标注可视化",
     )
     parser.add_argument(
         "--merge-iou",
         type=float,
-        default=0.5,
+        default=0.6,
         help="合并重叠预测时使用的IoU阈值（同类别重叠度高时仅保留置信度更高的一个）",
     )
     parser.add_argument(
@@ -344,7 +345,6 @@ def load_defaults(args: argparse.Namespace):
     label_path = args.label 
     
     if label_path is None:
-        print(image_path)
         label_path = str(image_path).replace("images","labels").replace(".tiff", ".txt")
         label_path = Path(label_path)
         print("label_path:",label_path)
@@ -380,7 +380,7 @@ def load_defaults(args: argparse.Namespace):
     if weights_path is None:
         raise ValueError("请通过 --weights 或配置文件提供模型权重路径")
 
-    pred_dir = args.pred_dir or _resolve_path(path_cfg.get("test_result_path")) or Path("./result/test_result")
+    pred_dir = tiles_dir
     pred_label = args.pred_label or (pred_dir / f"{image_path.stem}_pred.txt")
 
     return (
@@ -461,7 +461,8 @@ def main() -> None:
 
     # 1) 切图
     if not args.skip_cut:
-        label_path
+        if label_path is None:
+            raise ValueError("执行切图需要 --label 或配置中的 tiff_cut.source_label")
         ensure_tiles(
             image_path=image_path,
             label_path=label_path,
@@ -514,14 +515,10 @@ def main() -> None:
         raise FileNotFoundError(
             f"未执行推理且找不到现有预测标签: {pred_label_path}"
         )
-
     if not args.no_visualize:
         gt_label_for_vis: str | None = None
         if args.visualize_original_label:
-            if label_path is None:
-                raise ValueError("需要提供 --label 或配置文件中的原始标签路径以展示原始标注结果")
             gt_label_for_vis = str(label_path)
-        print(gt_label_for_vis)
         visual_img(
             tiff_path=str(image_path),
             pred_label_path=str(pred_label_path),
@@ -531,6 +528,7 @@ def main() -> None:
             export_patches=args.export_detection_patches,
             patch_output_dir=args.patch_output_dir,
             patch_size=args.patch_size,
+
         )
     else:
         print("[完成] 已生成预测标签，未按照 --no-visualize 进行可视化")
