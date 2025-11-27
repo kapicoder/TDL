@@ -34,7 +34,7 @@
         "tile_size":256,
 
         "?overlap_rate":"Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
-        "overlap_rate":0.5,
+        "overlap_rate":0.05,
 
         "?save_empty":"Whether to export tiles without any boxes",
         "save_empty":true,
