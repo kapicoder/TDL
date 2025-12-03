@@ -1,0 +1,29 @@
+# 使用一个合适的基础镜像（比如Debian或Ubuntu）
+FROM debian:bullseye-slim
+
+# 安装QEMU和必要的工具
+RUN apt-get update && apt-get install -y \
+    qemu-user-static \
+    binfmt-support \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 将 qemu-arm-static 复制到容器中
+COPY /usr/bin/qemu-arm-static /usr/bin/
+
+# 配置 Docker 在构建过程中使用 QEMU 进行跨架构支持
+RUN [ "cross-build-start" ]
+
+# 在这里添加你的构建命令，例如安装依赖或者构建应用程序
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+# 最后标志着跨平台构建过程结束
+RUN [ "cross-build-end" ]
+
+# 默认的容器命令
+CMD ["bash"]

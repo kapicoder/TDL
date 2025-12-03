@@ -201,9 +201,9 @@ def _export_detection_patches(
             continue
         fig, ax = plt.subplots(figsize=(4, 4.5), constrained_layout=True)
         patch_to_show = _prepare_image_for_save(patch)
-        ax.imshow(patch_to_show, cmap="gray")
-        ax.set_title(f"Detection #{idx}")
-        ax.axis("off")
+        # ax.imshow(patch_to_show, cmap="gray")
+        # ax.set_title(f"Detection #{idx}")
+        # ax.axis("off")
         rect = plt.Rectangle(
             (box["x1"] - x1_patch, box["y1"] - y1_patch),
             box["x2"] - box["x1"],
@@ -386,7 +386,7 @@ def visual_img(
     ax_original = axes_main[0]
     x_mid = width // 2
     y_mid = height // 2
-    ax_original.imshow(_prepare_image_for_save(display_img), cmap="gray")
+    #ax_original.imshow(_prepare_image_for_save(display_img), cmap="gray")
     ax_original.set_title("original image")
     ax_original.axis("off")
     if use_latlon and geo_transformer is not None:
@@ -438,10 +438,10 @@ def visual_img(
     fig_main.savefig(store_path, dpi=300,bbox_inches='tight')
     
     # 显示预测标签
-    if patch_imgs:
-        plt.show(block=False)
-    else:
-        plt.show(block=block)
+    # if patch_imgs:
+    #     plt.show(block=False)
+    # else:
+    #     plt.show(block=block)
 
     # 逐份输出单独的标注图像
     gt_lines_for_file: List[str] = []
@@ -483,37 +483,37 @@ def visual_img(
         ann_fp.write("\n".join(annotation_lines))
 
     #输出展示部分识别结果的子图
-    if patch_imgs:
-        preview = min(4, len(patch_imgs))
-        fig_patch, axes_patch = plt.subplots(1, preview, figsize=(5 * preview, 5), constrained_layout=True)
-        if preview == 1:
-            axes_patch = [axes_patch]
-        for ax, patch_info in zip(axes_patch, patch_imgs[:preview]):
-            ax.imshow(_prepare_image_for_save(patch_info["img"]), cmap="gray")
-            ax.set_title(patch_info["title"])
-            ax.axis("off")
-            rect = plt.Rectangle(
-                patch_info["rect_origin"],
-                patch_info["rect_size"][0],
-                patch_info["rect_size"][1],
-                edgecolor="red",
-                facecolor="none",
-                linewidth=2,
-            )
-            ax.add_patch(rect)
-            ax.text(
-                0.5,
-                -0.08,
-                patch_info["caption"],
-                transform=ax.transAxes,
-                ha="center",
-                va="top",
-                fontsize=10,
-            )
-        plt.show(block=block)
-        plt.close(fig_patch)
-    else:
-        plt.show(block=block)
+    # if patch_imgs:
+    #     preview = min(4, len(patch_imgs))
+    #     fig_patch, axes_patch = plt.subplots(1, preview, figsize=(5 * preview, 5), constrained_layout=True)
+    #     if preview == 1:
+    #         axes_patch = [axes_patch]
+    #     for ax, patch_info in zip(axes_patch, patch_imgs[:preview]):
+    #         ax.imshow(_prepare_image_for_save(patch_info["img"]), cmap="gray")
+    #         ax.set_title(patch_info["title"])
+    #         ax.axis("off")
+    #         rect = plt.Rectangle(
+    #             patch_info["rect_origin"],
+    #             patch_info["rect_size"][0],
+    #             patch_info["rect_size"][1],
+    #             edgecolor="red",
+    #             facecolor="none",
+    #             linewidth=2,
+    #         )
+    #         ax.add_patch(rect)
+    #         ax.text(
+    #             0.5,
+    #             -0.08,
+    #             patch_info["caption"],
+    #             transform=ax.transAxes,
+    #             ha="center",
+    #             va="top",
+    #             fontsize=10,
+    #         )
+    #     plt.show(block=block)
+    #     plt.close(fig_patch)
+    # else:
+    #     plt.show(block=block)
     plt.close(fig_main)
     
 

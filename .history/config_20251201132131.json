@@ -101,7 +101,7 @@
       "patience": 100,
 
       "?data_yaml_path": "The data yaml path for AIR-SARShip dataset",
-      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
+      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt/split/data.yaml"
     }
   },
 

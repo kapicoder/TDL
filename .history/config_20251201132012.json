@@ -30,7 +30,7 @@
     "tile_size": 512,
 
     "?overlap_rate": "Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
-    "overlap_rate": 0.1,
+    "overlap_rate": 0.05,
 
     "?save_empty": "Whether to export tiles without any boxes",
     "save_empty": true,
@@ -101,7 +101,7 @@
       "patience": 100,
 
       "?data_yaml_path": "The data yaml path for AIR-SARShip dataset",
-      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
+      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt/split/data.yaml"
     }
   },
 

@@ -155,7 +155,7 @@
       "output_path": "result/test_results",
 
       "?weights_path": "The model weights path used for testing",
-      "weights_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt"
+      "weights_path": "model/best.pt"
     }
   },
 

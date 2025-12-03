@@ -27,7 +27,7 @@
     "output_dir": "dataset/AIR-SARShip-1.0/data_split",
 
     "?tile_size": "Tile size in pixels (square tiles)",
-    "tile_size": 512,
+    "tile_size": 256,
 
     "?overlap_rate": "Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
     "overlap_rate": 0.1,
@@ -155,7 +155,7 @@
       "output_path": "result/test_results",
 
       "?weights_path": "The model weights path used for testing",
-      "weights_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt"
+      "weights_path": "model/best.pt"
     }
   },
 

@@ -171,31 +171,10 @@ def _export_detection_patches(
             continue
         cx = (box["x1"] + box["x2"]) / 2.0
         cy = (box["y1"] + box["y2"]) / 2.0
-        x1_patch = int(round(cx - half))
-        y1_patch = int(round(cy - half))
-        x2_patch = x1_patch + patch_size
-        y2_patch = y1_patch + patch_size
-
-        if x1_patch < 0:
-            x1_patch = 0
-            x2_patch = patch_size
-        if y1_patch < 0:
-            y1_patch = 0
-            y2_patch = patch_size
-        if x2_patch > width:
-            x2_patch = width
-            x1_patch = max(0, width - patch_size)
-        if y2_patch > height:
-            y2_patch = height
-            y1_patch = max(0, height - patch_size)
-
-        # 若原始图尺寸小于 patch_size，退化为可用范围
-        if width < patch_size:
-            x1_patch = 0
-            x2_patch = width
-        if height < patch_size:
-            y1_patch = 0
-            y2_patch = height
+        x1_patch = int(max(0, cx - half))
+        y1_patch = int(max(0, cy - half))
+        x2_patch = int(min(width, cx + half))
+        y2_patch = int(min(height, cy + half))
         patch = image_array[y1_patch:y2_patch, x1_patch:x2_patch].copy()
         if patch.size == 0:
             continue

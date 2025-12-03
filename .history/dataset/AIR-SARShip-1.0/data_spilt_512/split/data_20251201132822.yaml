@@ -1,0 +1,7 @@
+path: dataset/AIR-SARShip-1.0/data_spilt/split
+train: train/images
+val: test/images
+test: test/images
+nc: 1
+names:
+  0: ship

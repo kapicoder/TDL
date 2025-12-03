@@ -171,7 +171,7 @@ def _export_detection_patches(
             continue
         cx = (box["x1"] + box["x2"]) / 2.0
         cy = (box["y1"] + box["y2"]) / 2.0
-        x1_patch = int(round(cx - half))
+                x1_patch = int(round(cx - half))
         y1_patch = int(round(cy - half))
         x2_patch = x1_patch + patch_size
         y2_patch = y1_patch + patch_size

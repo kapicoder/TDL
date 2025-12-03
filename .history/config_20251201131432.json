@@ -27,10 +27,10 @@
     "output_dir": "dataset/AIR-SARShip-1.0/data_split",
 
     "?tile_size": "Tile size in pixels (square tiles)",
-    "tile_size": 512,
+    "tile_size": 256,
 
     "?overlap_rate": "Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
-    "overlap_rate": 0.1,
+    "overlap_rate": 0.05,
 
     "?save_empty": "Whether to export tiles without any boxes",
     "save_empty": true,
@@ -41,10 +41,10 @@
 
   "pretrained_model": {
     "?pretrained_model_path": "The pre_trained_model uesd for fine-tuning or testing",
-    "pretrained_model_path": "yolo11x.pt",
+    "pretrained_model_path": "yolo11m.pt",
 
     "?pretrained_model_name": "The pre_trained_model name",
-    "pretrained_model_name": "yolo11x"
+    "pretrained_model_name": "yolo11x_249epochs"
   },
 
   "train": {
@@ -101,7 +101,7 @@
       "patience": 100,
 
       "?data_yaml_path": "The data yaml path for AIR-SARShip dataset",
-      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
+      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt/split/data.yaml"
     }
   },
 

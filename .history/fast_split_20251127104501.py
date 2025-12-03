@@ -169,7 +169,6 @@ def print_run_summary(
     print(
         f"推理参数         : conf={args.conf}, iou={args.iou}, imgsz={args.imgsz}, batch={args.batch}, device={args.device}, half={args.half}"
     )
-    print(f"设备：           : {args.device}")
     print(f"合并IoU阈值      : {args.merge_iou}")
     print("==============================\n")
 

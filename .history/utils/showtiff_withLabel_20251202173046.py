@@ -86,22 +86,22 @@ def _draw_panel(
     id_prefix: str = "#",
     write_info_text: bool = True,
 ):
-    img_for_draw = _prepare_image_for_save(image_array)
-    ax.imshow(img_for_draw, cmap="gray")
-    ax.set_title(title)
-    ax.axis("off")
-    if not boxes:
-        ax.text(
-            0.5,
-            0.5,
-            empty_message,
-            ha="center",
-            va="center",
-            color="gray",
-            fontsize=12,
-            transform=ax.transAxes,
-        )
-        return
+    # img_for_draw = _prepare_image_for_save(image_array)
+    # ax.imshow(img_for_draw, cmap="gray")
+    # ax.set_title(title)
+    # ax.axis("off")
+    # if not boxes:
+    #     ax.text(
+    #         0.5,
+    #         0.5,
+    #         empty_message,
+    #         ha="center",
+    #         va="center",
+    #         color="gray",
+    #         fontsize=12,
+    #         transform=ax.transAxes,
+    #     )
+    #     return
 
     bbox_info_lines = []
     for idx, box in enumerate(boxes, start=1):
@@ -201,9 +201,9 @@ def _export_detection_patches(
             continue
         fig, ax = plt.subplots(figsize=(4, 4.5), constrained_layout=True)
         patch_to_show = _prepare_image_for_save(patch)
-        ax.imshow(patch_to_show, cmap="gray")
-        ax.set_title(f"Detection #{idx}")
-        ax.axis("off")
+        # ax.imshow(patch_to_show, cmap="gray")
+        # ax.set_title(f"Detection #{idx}")
+        # ax.axis("off")
         rect = plt.Rectangle(
             (box["x1"] - x1_patch, box["y1"] - y1_patch),
             box["x2"] - box["x1"],

@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path("dataset/AIR-SARShip-1.0/data_spilt_512"),
+        default=Path("dataset/AIR-SARShip-1.0/data_spilt"),
         help="包含 images/ 与 labels/ 的根目录",
     )
     parser.add_argument(

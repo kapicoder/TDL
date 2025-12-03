@@ -13,7 +13,7 @@ from utils.tiff_cut import CutterSettings, cut_tiff
 from utils.tiff2png import convert_tiff_to_png, iter_tiff_files
 from utils.showtiff_withLabel import visual_img
 
-print ("new feature test")
+
 with open("./config.json", "r", encoding="utf-8") as cf:
     CONFIG = json.load(cf)
 

@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+
+FROM sonoisa/deep-learning-coding:pytorch1.6.0_tensorflow2.3.0
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    GDAL_DATA=/usr/local/share/gdal \
+    PROJ_LIB=/usr/local/share/proj
+
+WORKDIR /app
+
+USER root
+
+# 安装 GDAL 依赖
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
+    gdal-bin \
+    libgdal-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 设置 GDAL 环境变量，确保安装正确
+ENV GDAL_DATA=/usr/share/gdal
+ENV PROJ_LIB=/usr/share/proj
+ENV GDAL_CONFIG=/usr/bin/gdal-config
+
+# 升级 pip 并安装 Python 依赖
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+    ultralytics==8.2.103 \
+    rasterio \
+    geopandas \
+    shapely \
+    pillow \
+    pyyaml \
+    lxml \
+    pyproj
+
+# 复制代码到容器
+COPY . /app
+
+# 默认命令
+CMD ["bash"]
