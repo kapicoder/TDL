@@ -7,8 +7,7 @@ from typing import Tuple
 
 def start_docker(
     host_port: int = 8000,
-    result_dir: str = "./TDL_result",
-    dataset_dir: str = "./dataset",
+    workspace: str = "./target_detection_location",
     *,
     image: str = "ultralytics/ultralytics:latest",
     name: str | None = None,
@@ -18,21 +17,18 @@ def start_docker(
 
     Args:
         host_port: 映射到容器 8000 的本地主机端口。
-        result_dir: 宿主机 result 目录，挂载到容器 /workspace/TDL/result。
-        dataset_dir: 宿主机 dataset 目录，挂载到容器 /workspace/TDL/dataset。
+        workspace: 映射到容器的工作目录.
         image: 可选，自定义镜像名称。
         name: 可选，容器名称（便于停止）。
 
     Returns:
         (success, message)：success 表示启动是否成功，message 为容器 ID 或错误信息。
     """
-    host_result = Path(result_dir).expanduser().resolve()
-    host_dataset = Path(dataset_dir).expanduser().resolve()
+    workspace = Path(workspace).expanduser().resolve()
 
-    if not host_result.exists():
-        return False, f"result_dir 不存在: {host_result}"
-    if not host_dataset.exists():
-        return False, f"dataset_dir 不存在: {host_dataset}"
+
+    if not workspace.exists():
+        return False, f"result_dir 不存在: {workspace}"
 
     cmd = [
         "docker",
@@ -46,9 +42,7 @@ def start_docker(
         "-w",
         "/workspace/TDL",
         "-v",
-        f"{host_result}:/workspace/TDL/result",
-        "-v",
-        f"{host_dataset}:/workspace/TDL/dataset",
+        f"{workspace}:/workspace",
     ]
     if name:
         cmd.extend(["--name", name])
