@@ -14,8 +14,7 @@ def main() -> None:
     # 启动容器
     ok, msg = start_docker(
         host_port=8000,
-        result_dir="./docker_result",
-        dataset_dir="./dataset",
+        host_dir="../target_detection_location",
         name=container_name,
         image="ultralytics/ultralytics:latest"
     )
@@ -30,7 +29,7 @@ def main() -> None:
     # 调用 batch_split API
     try:
         print("开始请求调用并执行api")
-        resp = request_batch_split()
+        resp = request_batch_split(images_dir="dataset/AIR-SARShip-1.0/test/images")
         print("API 返回：")
         print(json.dumps(resp, ensure_ascii=False, indent=2))
         # 输出容器日志到终端
