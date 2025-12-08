@@ -31,7 +31,7 @@ def _build_config(payload: Dict[str, Any]) -> tuple[CONFIG, Path | None, bool]:
     no_label = bool(payload.get("no_label", False))
 
     cfg.update_config(
-        test_img_path=images_dir,
+        batch_test_img_path=images_dir,
         test_visualize=not test_visualize,
         test_weights_path=weights,
         test_output_path=visualization_patch_output_dir,

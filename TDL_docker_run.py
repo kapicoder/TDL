@@ -84,7 +84,6 @@ def stop_docker(container: str) -> Tuple[bool, str]:
 if __name__ == "__main__":
     ok, msg = start_docker(
         host_port=8000,
-        workspace="./target_detection_location",
         name="tdl_api",
     )
     print(msg if ok else f"启动失败: {msg}")
