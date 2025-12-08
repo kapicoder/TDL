@@ -7,7 +7,7 @@ from typing import Tuple
 
 def start_docker(
     host_port: int = 8000,
-    workspace: str = "./target_detection_location",
+    host_dir: str = "./target_detection_location",
     *,
     image: str = "ultralytics/ultralytics:latest",
     name: str | None = None,
@@ -17,18 +17,18 @@ def start_docker(
 
     Args:
         host_port: 映射到容器 8000 的本地主机端口。
-        workspace: 映射到容器的工作目录.
+        host_dir: 映射到容器的工作目录.
         image: 可选，自定义镜像名称。
         name: 可选，容器名称（便于停止）。
 
     Returns:
         (success, message)：success 表示启动是否成功，message 为容器 ID 或错误信息。
     """
-    workspace = Path(workspace).expanduser().resolve()
+    host_dir = Path(host_dir).expanduser().resolve()
 
 
-    if not workspace.exists():
-        return False, f"result_dir 不存在: {workspace}"
+    if not host_dir.exists():
+        return False, f"result_dir 不存在: {host_dir}"
 
     cmd = [
         "docker",
@@ -40,9 +40,9 @@ def start_docker(
         "-p",
         f"{host_port}:8000",
         "-w",
-        "/workspace/TDL",
+        "/workspace",
         "-v",
-        f"{workspace}:/workspace",
+        f"{host_dir}:/workspace",
     ]
     if name:
         cmd.extend(["--name", name])
@@ -84,8 +84,7 @@ def stop_docker(container: str) -> Tuple[bool, str]:
 if __name__ == "__main__":
     ok, msg = start_docker(
         host_port=8000,
-        result_dir="./TDL_result",
-        dataset_dir="./dataset",
+        workspace="./target_detection_location",
         name="tdl_api",
     )
     print(msg if ok else f"启动失败: {msg}")

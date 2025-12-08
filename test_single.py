@@ -1,15 +1,12 @@
 import argparse
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
-import json
 from ultralytics import YOLO  # type: ignore
 from utils import tiff2png
-with open("./config.json", "r") as cf:
-    config = json.load(cf)
-
+from utils.config import CONFIG
+from utils.showtiff_withLabel import visual_img
 
 def class_color(index: int) -> Tuple[int, int, int]:
     """Return a deterministic color for the given class index."""
@@ -30,19 +27,6 @@ def measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont
         left, top, right, bottom = font.getbbox(text)
         return right - left, bottom - top
     return draw.textsize(text, font=font)
-
-
-def overlay_caption(image: Image.Image, caption: str) -> None:
-    """Overlay a simple caption on the top-left corner of the image."""
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
-    padding = 4
-    text_w, text_h = measure_text(draw, caption, font)
-    x1, y1 = 4, 4
-    x2 = x1 + text_w + padding * 2
-    y2 = y1 + text_h + padding * 2
-    draw.rectangle([x1, y1, x2, y2], fill=(0, 0, 0))
-    draw.text((x1 + padding, y1 + padding), caption, fill="white", font=font)
 
 
 def draw_boxes(
@@ -141,105 +125,161 @@ def find_label_file(image_path: Path) -> Optional[Path]:
                 return candidate
     return None
 
+def _normalize_box(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    width: int,
+    height: int,
+) -> Tuple[float, float, float, float]:
+    x1 = max(0.0, min(float(width), x1))
+    x2 = max(0.0, min(float(width), x2))
+    y1 = max(0.0, min(float(height), y1))
+    y2 = max(0.0, min(float(height), y2))
+    if x2 <= x1 or y2 <= y1:
+        return 0.0, 0.0, 0.0, 0.0
+    xc = ((x1 + x2) / 2.0) / width
+    yc = ((y1 + y2) / 2.0) / height
+    bw = (x2 - x1) / width
+    bh = (y2 - y1) / height
+    return xc, yc, bw, bh
 
+def write_label_file(
+    label_path: Path, boxes: List[dict], width: int, height: int
+) -> int:
+    label_path.parent.mkdir(parents=True, exist_ok=True)
+    lines: List[str] = []
+    for box in boxes:
+        xc, yc, bw, bh = _normalize_box(*box["xyxy"], width, height)
+        if bw <= 0 or bh <= 0:
+            continue
+        lines.append(f"{box['cls']} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
+    label_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"已写入 {len(lines)} 个预测框 -> {label_path}")
+    return len(lines)
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Compare original, predicted, and ground-truth annotations.")
-   
-    parser.add_argument("--image", type=Path, help="Path to the input image to be predicted.")
-    parser.add_argument(
-        "--weights",
-        type=Path,
-        default="model/best.pt",
-        help="Path to model weights (defaults to latest result/**/weights/best.pt).",
-    )
-    
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default="./result/result_single",
-        help="Output path or directory for the composed comparison image.",
-    )
-    parser.add_argument(
-        "--conf",
-        type=float,
-        default=0.25,
-        help="Object confidence threshold.",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda",
-        help="Device to perform inference on (default: cpu).",
-    )
-    parser.add_argument(
-        "--no_label",
-        action="store_true",
-        help="Use label file if it exists.",
-    )
-    args=parser.parse_args()
-    image_path = args.image
+def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]:
+    """Run single-image test, save composite PNG/labels, and optionally visualize."""
+    image_path_raw = config["test_img_path"]
+    if image_path_raw is None:
+        raise ValueError("未找到 test_img_path，请在 config.json 或命令行中提供。")
+    image_path = Path(image_path_raw)
+    weights_path = Path(config["test_weights_path"] or "model/best.pt")
+    output_root = Path(config["test_output_path"] or "./result/result_single")
+    conf_thres = float(config["test_conf"] if config["test_conf"] is not None else 0.25)
+    iou_thres = float(config["test_iou"] if config["test_iou"] is not None else 0.6)
+    device = config["test_device"] or config["device"] or "cuda"
+    use_label = config["use_label"] if config["use_label"] is not None else True
+    augment = config["test_augment"] if config["test_augment"] is not None else False
+    patch_root = Path(config["visualization_patch_output_dir"])
+    patch_size_raw = (config["visualization_target_patch_size"])
+    patch_size = int(patch_size_raw)
+    use_latlon = config["use_latlon"] if config["use_latlon"] is not None else True
+    export_patches = config["export_patches"] if config["export_patches"] is not None else True
+
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
-
-    weights_path = args.weights
-
     if not weights_path.exists():
         raise FileNotFoundError(f"Model weights not found: {weights_path}")
 
     model = YOLO(str(weights_path))
-    img=Image.open(image_path)
+    img = Image.open(image_path)
     img = tiff2png.ensure_png_ready(img).convert("RGB")
     results = model.predict(
         source=img,
-        conf=args.conf,
+        conf=conf_thres,
         imgsz=img.size,
-        device=args.device,
+        device=device,
         verbose=False,
-        iou=0.6,
-        augment=False
+        iou=iou_thres,
+        augment=augment,
     )
     if not results:
         raise RuntimeError("Ultralytics did not return any prediction results.")
 
     result = results[0]
-    
     with Image.open(image_path) as base_img:
-        label_path = None
-        base_img = tiff2png.ensure_png_ready(base_img).convert("RGB")   
-        class_names = {int(k): v for k, v in model.names.items()}
-        original_panel = base_img.copy()
         pred_boxes = prediction_boxes(result)
-        prediction_panel = draw_boxes(base_img.copy(), pred_boxes, class_names)
-        if not args.no_label:
+        if use_label:
             label_path = find_label_file(image_path)
-        gt_boxes: List[Tuple[float, float, float, float, float, int]] = []
-        #label_path = find_label_file(image_path)
-        if label_path is not None:
-            gt_boxes = load_ground_truth_boxes(label_path, base_img.width, base_img.height)
-        ground_truth_panel = draw_boxes(base_img.copy(), gt_boxes, class_names)
 
-        overlay_caption(original_panel, "Original")
-        overlay_caption(prediction_panel, f"Prediction ({len(pred_boxes)})")
-        if label_path is not None:
-            overlay_caption(ground_truth_panel, f"Ground Truth ({len(gt_boxes)})")
-        else:
-            overlay_caption(ground_truth_panel, "Ground Truth (missing)")
 
         width, height = base_img.size
-        composite = Image.new("RGB", (width * 3, height), color=(0, 0, 0))
-        composite.paste(original_panel, (0, 0))
-        composite.paste(prediction_panel, (width, 0))
-        composite.paste(ground_truth_panel, (width * 2, 0))
 
-    output_path = (Path(args.output) / image_path.name).with_suffix(".png")
-    if not output_path.parent.exists():
-        output_path.parent.mkdir(parents=True)
-    composite.save(output_path)
-
+    output_path = (output_root / image_path.name).with_suffix(".png")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+  
     print(f"Detections: {len(pred_boxes)}")
-    print(f"Ground-truth boxes: {len(gt_boxes)}")
     print(f"Comparison saved to: {output_path}")
+    gt_label_for_vis = str(label_path) if label_path is not None else None
+    pred_label_path = (output_root / image_path.stem / image_path.name).with_suffix(".txt")
+    pred_boxes_for_label = [
+        {"xyxy": (x1, y1, x2, y2), "cls": cls_idx} for x1, y1, x2, y2, _, cls_idx in pred_boxes
+    ]
+    write_label_file(
+        Path(pred_label_path),
+        pred_boxes_for_label,
+        width,
+        height,
+    )
+    if visualize:
+        visual_img(
+            tiff_path=str(image_path),
+            pred_label_path=str(pred_label_path),
+            gt_label_path=gt_label_for_vis,
+            use_latlon=use_latlon,
+            export_patches=export_patches,
+            patch_output_dir=patch_root,
+            patch_size=patch_size,
+        )
+
+    return {
+        "image": image_path,
+        "weights": weights_path,
+        "output": output_path,
+        "pred_label": Path(pred_label_path),
+        "gt_label": label_path,
+        "detections": len(pred_boxes),
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Compare original, predicted, and ground-truth annotations.")
+    parser.add_argument("--test_img_path", type=Path, help="Path to the input image to be predicted (config default).")
+    parser.add_argument(
+        "--test_weights_path",
+        type=Path,
+        help="Path to model weights (default: config test_weights_path or model/best.pt).",
+    )
+    parser.add_argument(
+        "--test_output_path",
+        type=Path,
+        help="Output directory for the composed comparison image (defaults to config).",
+    )
+    parser.add_argument("--test_conf", type=float, help="Object confidence threshold.")
+    parser.add_argument("--test_iou", type=float, help="IoU threshold.")
+    parser.add_argument("--device", type=str, help="Device to perform inference on (defaults to config or cuda).")
+    parser.add_argument("--patch_size", type=int, help="Patch size for visualization export.")
+    parser.add_argument("--no_label", action="store_true", help="Skip loading ground-truth label.")
+    parser.add_argument("--no_visual", action="store_true", help="Disable visualization export.")
+    args = parser.parse_args()
+
+    config = CONFIG()
+    overrides: Dict[str, object] = {
+        "test_img_path": args.test_img_path,
+        "test_weights_path": args.test_weights_path,
+        "test_output_path": args.test_output_path,
+        "test_conf": args.test_conf,
+        "test_iou": args.test_iou,
+        "test_device": args.device,
+        "target_patch_size": args.patch_size,
+    }
+    config.update_config(**overrides)
+    if args.no_label:
+        config.update_config(use_label=False)
+
+    run_single_test(config, visualize=not args.no_visual)
 
 
 if __name__ == "__main__":

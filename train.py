@@ -7,28 +7,27 @@ from pathlib import Path
 import yaml
 from ultralytics import YOLO  # type: ignore
 import json
-with open("./config.json", "r") as cf:
-    config = json.load(cf)
+from utils.config import CONFIG
 
-def train_model(
+def train_model(config: CONFIG
 ) -> None:
     """Train YOLO on MAR_reset using the provided pretrained weights."""
     
-    dataset_name=config["train"]["train_dataset"]
-    dataset_cfg=config["train"]["train_"+dataset_name]
+    dataset_name=config["train_dataset"]
 
-    res_name=dataset_name+"_"+config["pretrained_model"]["pretrained_model_name"]
-    lr0=dataset_cfg["lr"]
-    lrf=dataset_cfg["lrf"]
-    weigths_path = config["pretrained_model"]["pretrained_model_path"]
-    data_yaml_path = dataset_cfg["data_yaml_path"]
-    project_dir = config["path"]["train_result_path"]
+
+    res_name=dataset_name+"_"+config["pretrained_model_name"]
+    lr0=config["lr"]
+    lrf=config["lrf"]
+    weigths_path = config["pretrained_model_path"]
+    data_yaml_path = config["train_data_yaml_path"]
+    project_dir = config["train_result_path"]
     project_dir = Path(project_dir)
     project_dir.mkdir(parents=True, exist_ok=True)
-    epochs = dataset_cfg["epochs"]
-    batch = dataset_cfg["batch_size"]
-    imgsz = dataset_cfg["img_size"]
-    patience=dataset_cfg["patience"]
+    epochs = config["epochs"]
+    batch = config["batch_size"]
+    imgsz = config["img_size"]
+    patience=config["patience"]
 
     model = YOLO(str(weigths_path))
 
@@ -48,5 +47,5 @@ def train_model(
     print(f"Training complete. Results stored under: {project_dir}")
 
 if __name__ == "__main__":
-    
-    train_model()
+    cfg=CONFIG()
+    train_model(cfg)

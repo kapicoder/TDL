@@ -455,7 +455,6 @@ def main() -> None:
         pred_label_path=str(pred_label_path),
         gt_label_path=gt_label_for_vis,
         use_latlon=args.use_latlon,
-        block=True,
         export_patches=args.export_detection_patches,
         patch_output_dir=patch_root,
         patch_size=args.patch_size,

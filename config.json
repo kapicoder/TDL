@@ -17,26 +17,26 @@
   },
 
   "tiff_cut": {
-    "?source_image": "Path to the large TIFF image that needs to be sliced",
-    "source_image": "dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-1.tiff",
+    "?tiffcut_source_image": "Path to the large TIFF image that needs to be sliced",
+    "tiffcut_source_image": "dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-1.tiff",
 
-    "?source_label": "YOLO-format label file (normalized coords) that matches the source image",
-    "source_label": "dataset/AIR-SARShip-1.0/train/labels/SARShip-1.0-1.txt",
+    "?tiffcut_source_label": "YOLO-format label file (normalized coords) that matches the source image",
+    "tiffcut_source_label": "dataset/AIR-SARShip-1.0/train/labels/SARShip-1.0-1.txt",
 
-    "?output_dir": "Directory that will receive the cropped tiles (images/ & labels/)",
-    "output_dir": "dataset/AIR-SARShip-1.0/data_split",
+    "?tiffcut_output_dir": "Directory that will receive the cropped tiles (images/ & labels/)",
+    "tiffcut_output_dir": "dataset/AIR-SARShip-1.0/data_split",
 
-    "?tile_size": "Tile size in pixels (square tiles)",
-    "tile_size": 512,
+    "?tiffcut_tile_size": "Tile size in pixels (square tiles)",
+    "tiffcut_tile_size": 512,
 
-    "?overlap_rate": "Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
-    "overlap_rate": 0.1,
+    "?tiffcut_overlap_rate": "Fractional overlap between image tiles (e.g. 0.2 = 20% overlap)",
+    "tiffcut_overlap_rate": 0.1,
 
-    "?save_empty": "Whether to export tiles without any boxes",
-    "save_empty": true,
+    "?tiffcut_save_empty": "Whether to export tiles without any boxes",
+    "tiffcut_save_empty": true,
 
-    "?output_ext": "Image extension for the exported tiles",
-    "output_ext": ".tiff"
+    "?tiff_cut_output_ext": "Image extension for the exported tiles",
+    "tiff_cut_output_ext": ".tiff"
   },
 
   "pretrained_model": {
@@ -74,8 +74,8 @@
       "?patience": "The patience used for training, if serveral epochs no improvement, then stop training",
       "patience": 10,
 
-      "?data_yaml_path": "The data yaml path for MAR1 dataset",
-      "data_yaml_path": "dataset/MAR1/MAR1_reset/data.yaml"
+      "?train_data_yaml_path": "The data yaml path for MAR1 dataset",
+      "train_data_yaml_path": "dataset/MAR1/MAR1_reset/data.yaml"
     },
 
     "train_AIR-SARShip": {
@@ -100,8 +100,8 @@
       "?patience": "The patience used for training, if serveral epochs no improvement, then stop training",
       "patience": 100,
 
-      "?data_yaml_path": "The data yaml path for AIR-SARShip dataset",
-      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
+      "?train_data_yaml_path": "The data yaml path for AIR-SARShip dataset",
+      "train_data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
     }
   },
 
@@ -110,25 +110,25 @@
     "validate_dataset": "AIR-SARShip",
 
     "validate_MAR1": {
-      "?subdataset": "The subdataset used for validation, may containing: test,train,val",
-      "subdataset": "test",
+      "?validate_subdataset": "The subdataset used for validation, may containing: test,train,val",
+      "validate_subdataset": "test",
 
       "?validate_model_path": "The model path used for validation",
       "validate_model_path": "./result/train_result/MAR1_yolo11m/weights/best.pt",
 
-      "?data_yaml_path": "The data yaml path for MAR1 dataset",
-      "data_yaml_path": "dataset/MAR1/MAR1_reset/data.yaml"
+      "?validate_data_yaml_path": "The data yaml path for MAR1 dataset",
+      "validate_data_yaml_path": "dataset/MAR1/MAR1_reset/data.yaml"
     },
 
     "validate_AIR-SARShip": {
-      "?subdataset": "The subdataset used for validation, may containing: test,train,val",
-      "subdataset": "test",
+      "?validate_subdataset": "The subdataset used for validation, may containing: test,train,val",
+      "validate_subdataset": "test",
 
       "?validate_model_path": "The model path used for validation",
       "validate_model_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt",
 
-      "?data_yaml_path": "The data yaml path for AIR-SARShip dataset",
-      "data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt/split/data.yaml"
+      "?validate_data_yaml_path": "The data yaml path for AIR-SARShip dataset",
+      "validate_data_yaml_path": "dataset/AIR-SARShip-1.0/data_spilt_512/split/data.yaml"
     }
   },
 
@@ -140,30 +140,69 @@
       "?test_img_path": "The image path used for testing",
       "test_img_path": "dataset/MAR1/MAR1_reset/test/images/0505.jpg",
 
-      "?output_path": "The output path to store the testing results",
-      "output_path": "./result/test_results",
+      "?test_output_path": "The output path to store the testing results",
+      "test_output_path": "./result/test_results",
 
-      "?weights_path": "The model weights path used for testing",
-      "weights_path": "./result/train_result/MAR1_yolo11m/weights/best.pt"
+      "?test_weights_path": "The model weights path used for testing",
+      "test_weights_path": "./result/train_result/MAR1_yolo11m/weights/best.pt",
+
+      "?test_conf": "Confidence threshold for single-image test",
+      "test_conf": 0.25,
+
+      "?test_iou": "IoU threshold for single-image test",
+      "test_iou": 0.6,
+
+      "?test_device": "Device used for single-image test",
+      "test_device": "cuda",
+
+      "?use_label": "Whether to load ground-truth label during single-image test",
+      "use_label": true
     },
 
     "test_AIR-SARShip": {
       "?test_img_path": "The image path used for testing",
-      "test_img_path": "dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-10.tiff",
+      "test_img_path": "dataset/AIR-SARShip-1.0/train/images/SARShip-1.0-3.tiff",
 
-      "?output_path": "The output path to store the testing results",
-      "output_path": "result/test_results",
+      "?batch_test_img_path": "The directory path containing images for batch testing",
+      "batch_test_img_path": "dataset/AIR-SARShip-1.0/test/images",
 
-      "?weights_path": "The model weights path used for testing",
-      "weights_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt"
+      "?test_output_path": "The output path to store the testing results",
+      "test_output_path": "result/test_results",
+
+      "?test_weights_path": "The model weights path used for testing",
+      "test_weights_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt",
+
+      "?test_conf": "Confidence threshold for single-image test",
+      "test_conf": 0.25,
+
+      "?test_iou": "IoU threshold for single-image test",
+      "test_iou": 0.6,
+
+      "?test_device": "Device used for single-image test",
+      "test_device": "cuda",
+
+      "?use_label": "Whether to load ground-truth label during single-image test",
+      "use_label": true,
+
+      "?test_augment": "Whether to use augment during single-image test",
+      "test_augment": false,
+
+      "?test_visualize": "Whether to visualize the detection results during single-image test",
+      "test_visualize": true
     }
   },
 
   "visualization": {
-    "?target_patch_size": "Detection crop size (pixels) when exporting target-centered sub-images",
-    "target_patch_size": 512,
+    "?visualization_target_patch_size": "Detection crop size (pixels) when exporting target-centered sub-images",
+    "visualization_target_patch_size": 640,
 
-    "?patch_output_dir": "Directory used to store exported detection sub-images",
-    "patch_output_dir": "./result/test_results/"
+    "?visualization_patch_output_dir": "Directory used to store exported detection sub-images",
+    "visualization_patch_output_dir": "./result/test_results/",
+
+    "?export_patches": "Whether to export detection-centered patches",
+    "export_patches": true,
+
+    "?use_latlon": "Whether to output lon/lat when CRS is available during visualization",
+    "use_latlon": true
   }
 }

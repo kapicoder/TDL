@@ -294,12 +294,11 @@ def visual_img(
     pred_label_path: str | None = None,
     gt_label_path: str | None = None,
     use_latlon: bool = False,
-    block: bool = True,
     export_patches: bool = False,
     patch_output_dir: str | Path | None = None,
-    patch_size: int | None = None
+    patch_size: int | None = None,
+    config: dict = CONFIG,
 ):
-    
     # 输出路径定义
     output_dir = Path(patch_output_dir or DEFAULT_PATCH_DIR) / Path(tiff_path).stem
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -335,10 +334,10 @@ def visual_img(
     img = img.astype(np.uint8)
     display_img = img.transpose(1, 2, 0)
     
-    # 载入预测标签
+    # 载入预测和原始标签
     show_pred_panel = pred_label_path is not None
     show_original_panel = gt_label_path is not None
-    gt_boxes = _load_boxes(gt_label_path, width, height) if gt_label_path else []
+    gt_boxes = _load_boxes(gt_label_path, width, height) if show_original_panel else []
     pred_boxes: List[dict] = []
     if show_pred_panel:
         pred_boxes = _load_boxes(pred_label_path, width, height)
@@ -352,7 +351,7 @@ def visual_img(
     if not show_original_panel:
         panel_cols -= 1
 
-    # 导出预测标签
+    # 导出预测的子图
     patch_imgs: List[dict] = []
     if export_patches and pred_boxes:
         patch_dir = Path(patch_output_dir or DEFAULT_PATCH_DIR)
@@ -399,7 +398,9 @@ def visual_img(
         )
     elif use_latlon:
         print("Skipping lon/lat annotation because CRS information is unavailable.")
+        
     # 显示原始标签的数据
+   
     if gt_label_path is not None:
         gt_axis_index = 1 if panel_cols > 1 else 0
         ax_gt = axes_main[gt_axis_index]
@@ -407,7 +408,7 @@ def visual_img(
             ax_gt,
             display_img,
             gt_boxes,
-            title="origin label",
+            title="ground truth label",
             transform_affine=transform_affine,
             geo_transformer=geo_transformer,
             use_latlon=use_latlon,
@@ -437,11 +438,6 @@ def visual_img(
     # 保存主图像
     fig_main.savefig(store_path, dpi=300,bbox_inches='tight')
     
-    # 显示预测标签
-    if patch_imgs:
-        plt.show(block=False)
-    else:
-        plt.show(block=block)
 
     # 逐份输出单独的标注图像
     gt_lines_for_file: List[str] = []
@@ -483,37 +479,37 @@ def visual_img(
         ann_fp.write("\n".join(annotation_lines))
 
     #输出展示部分识别结果的子图
-    if patch_imgs:
-        preview = min(4, len(patch_imgs))
-        fig_patch, axes_patch = plt.subplots(1, preview, figsize=(5 * preview, 5), constrained_layout=True)
-        if preview == 1:
-            axes_patch = [axes_patch]
-        for ax, patch_info in zip(axes_patch, patch_imgs[:preview]):
-            ax.imshow(_prepare_image_for_save(patch_info["img"]), cmap="gray")
-            ax.set_title(patch_info["title"])
-            ax.axis("off")
-            rect = plt.Rectangle(
-                patch_info["rect_origin"],
-                patch_info["rect_size"][0],
-                patch_info["rect_size"][1],
-                edgecolor="red",
-                facecolor="none",
-                linewidth=2,
-            )
-            ax.add_patch(rect)
-            ax.text(
-                0.5,
-                -0.08,
-                patch_info["caption"],
-                transform=ax.transAxes,
-                ha="center",
-                va="top",
-                fontsize=10,
-            )
-        plt.show(block=block)
-        plt.close(fig_patch)
-    else:
-        plt.show(block=block)
+    # if patch_imgs:
+    #     preview = min(4, len(patch_imgs))
+    #     fig_patch, axes_patch = plt.subplots(1, preview, figsize=(5 * preview, 5), constrained_layout=True)
+    #     if preview == 1:
+    #         axes_patch = [axes_patch]
+    #     for ax, patch_info in zip(axes_patch, patch_imgs[:preview]):
+    #         ax.imshow(_prepare_image_for_save(patch_info["img"]), cmap="gray")
+    #         ax.set_title(patch_info["title"])
+    #         ax.axis("off")
+    #         rect = plt.Rectangle(
+    #             patch_info["rect_origin"],
+    #             patch_info["rect_size"][0],
+    #             patch_info["rect_size"][1],
+    #             edgecolor="red",
+    #             facecolor="none",
+    #             linewidth=2,
+    #         )
+    #         ax.add_patch(rect)
+    #         ax.text(
+    #             0.5,
+    #             -0.08,
+    #             patch_info["caption"],
+    #             transform=ax.transAxes,
+    #             ha="center",
+    #             va="top",
+    #             fontsize=10,
+    #         )
+    #     plt.show(block=block)
+    #     plt.close(fig_patch)
+    # else:
+    #     plt.show(block=block)
     plt.close(fig_main)
     
 

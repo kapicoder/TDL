@@ -4,13 +4,16 @@ from ultralytics import YOLO
 import json
 import yaml
 import argparse
-with open("./config.json", "r") as cf:
-    config = json.load(cf)
+from utils.config import CONFIG
 
-def validate_model(weights_path: Path, data_yaml_path: Path, subdataset: str) -> None:
+def validate_model(cfg) -> None:
     """Evaluate the provided weights on the test split and report aggregate metrics."""
-
+    weights_path = cfg["validate_model_path"]
+    data_yaml_path = cfg["validate_data_yaml_path"]
+    subdataset=cfg["validate_subdataset"]
     print(f"Validating weights: {weights_path}")
+    print(f"Using dataset: {data_yaml_path}")
+    print(f"Using subdataset: {subdataset}")
     model = YOLO(str(weights_path))
     res = model.val(data=data_yaml_path, split=subdataset)
 
@@ -48,43 +51,32 @@ def validate_model(weights_path: Path, data_yaml_path: Path, subdataset: str) ->
 
 
 if __name__== "__main__" :
-
+    config=CONFIG()
     parser = argparse.ArgumentParser(description="Validate the model on dataset.")
-    validate_dataset_name=config["validate"]["validate_dataset"]
+    validate_dataset_name=config["validate_dataset"]
 
     parser.add_argument(
         "--dataset", 
         type=str, 
         default=validate_dataset_name,
         help="Dataset name for validation.")
-    
-    args = parser.parse_args()
 
-    validate_cfg=config["validate"]["validate_"+args.dataset]
-    subdataset=validate_cfg["subdataset"]
-    validate_model_path=validate_cfg["validate_model_path"]
-    data_yaml_path=validate_cfg["data_yaml_path"]
 
     parser.add_argument(
         "--weights",
         type=Path,
-        default=Path(validate_model_path),
         help="Path to the model weights file.",
     )
     parser.add_argument(
         "--YamlPath",
         type=Path,
-        default=Path(data_yaml_path),
         help="Path to the dataset YAML file.",
     )
 
     parser.add_argument(
         "--subset", 
         type=str, 
-        default=subdataset,
         help="Dataset name for validation.")
-    
     args=parser.parse_args()
-    weights_path=args.weights
-    data_yaml_path=args.YamlPath
-    validate_model(weights_path=weights_path, data_yaml_path=data_yaml_path,subdataset=args.subset)
+    config.update_config(**vars(args))
+    validate_model(config)
