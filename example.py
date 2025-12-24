@@ -8,7 +8,9 @@ import subprocess
 from TDL_docker_run import start_docker, stop_docker
 from batch_split_request import request_batch_split
 
-
+"""
+对定位算法的封装
+"""
 def main() -> None:
     container_name = "example"
     # 启动容器

@@ -8,7 +8,11 @@ from test_single import run_single_test
 from utils.config import CONFIG
 
 TIFF_EXTS = {".tif", ".tiff"}
-
+"""
+批量推理脚本，用于对指定目录下的所有 TIFF 图像进行目标检测推理和可视化。图像送入 test_single.py 中的 run_single_test 函数处理。
+支持的图像格式仅包括 TIFF。
+并且推理结果只包含整张大图的识别结果，不包含裁剪之后的子图结果，以及原始图像和结果以及标注的可视化。
+"""
 
 def parse_args(config: CONFIG) -> argparse.Namespace:
     default_input = config["batch_test_img_path"] or config["test_img_path"]

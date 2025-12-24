@@ -13,6 +13,7 @@ try:
     from pyproj import Transformer
 except Exception:  # pragma: no cover - optional dependency
     Transformer = None  # type: ignore
+‘
 def class_color(index: int) -> Tuple[int, int, int]:
     """Return a deterministic color for the given class index."""
     palette = [

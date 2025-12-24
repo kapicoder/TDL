@@ -11,6 +11,10 @@ from requests import Response
 
 from utils.config import CONFIG
 
+"""
+对 batch_split 接口的封装，提供命令行和函数调用两种方式。
+"""
+
 
 
 def build_payload(args: argparse.Namespace, cfg: CONFIG | None = None) -> Dict[str, Any]:
