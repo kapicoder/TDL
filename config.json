@@ -187,8 +187,14 @@
       "?test_augment": "Whether to use augment during single-image test",
       "test_augment": false,
 
-      "?test_visualize": "Whether to visualize the detection results during single-image test",
-      "test_visualize": true
+      "?test_visualize": "是否输出图像和地理位置信息",
+      "test_visualize": true,
+
+      "?output_tiff": "是否输出tiff图像带标注",
+      "output_tiff": false,
+
+      "?show_pred_panel": "控制是否输出结果图像",
+      "show_pred_panel": true
     }
   },
 

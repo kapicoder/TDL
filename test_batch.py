@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 from typing import Dict, List
 
-from test_single import run_single_test
+from PIL import Image
+from ultralytics import YOLO  # type: ignore
+from test_single import (
+    find_label_file,
+    prediction_boxes,
+    save_detection_tiff,
+    show_img,
+    write_label_file,
+)
 from utils.config import CONFIG
+from utils import tiff2png
 
 TIFF_EXTS = {".tif", ".tiff"}
 """
@@ -55,6 +65,7 @@ def parse_args(config: CONFIG) -> argparse.Namespace:
     parser.add_argument("--visualize", action="store_true", help="启用可视化")
     parser.add_argument("--no-visualize", action="store_true", help="关闭可视化")
     parser.add_argument("--no-label", action="store_true", help="不加载原始标签")
+    parser.add_argument("--show_pred_panel",default=True, help="Show prediction panel.")
     return parser.parse_args()
 
 
@@ -85,17 +96,104 @@ def run_batch_test(
     config: CONFIG,
 ) -> List[Dict[str, object]]:
     input_path=config["batch_test_img_path"]
-    visualize=config["test_visualize"]
     images = collect_tiff_images(input_path)
     if not images:
         print(f"目录 {input_path} 下没有 TIFF 文件。")
         return []
 
     results: List[Dict[str, object]] = []
-    for img_path in images:
-        config.update_config(test_img_path=img_path)
-        result = run_single_test(config, visualize=visualize)
-        results.append(result)
+    batch_start = time.perf_counter()
+
+    visualize=config["test_visualize"]
+    weights_path = Path(config["test_weights_path"] or "model/best.pt")
+    conf_thres = float(config["test_conf"] if config["test_conf"] is not None else 0.25)
+    iou_thres = float(config["test_iou"] if config["test_iou"] is not None else 0.6)
+    device = config["test_device"] or config["device"] or "cuda"
+    use_label = config["use_label"] if config["use_label"] is not None else True
+    augment = config["test_augment"] if config["test_augment"] is not None else False
+    patch_root = Path(config["visualization_patch_output_dir"])
+    patch_size_raw = (config["visualization_target_patch_size"])
+    patch_size = int(patch_size_raw)
+    use_latlon = config["use_latlon"] if config["use_latlon"] is not None else True
+    export_patches = config["export_patches"] if config["export_patches"] is not None else True
+    output_tiff=config["output_tiff"] if config["output_tiff"] is not None else False
+    output_root = Path(config["test_output_path"] or "./result/result_single")
+
+    if not weights_path.exists():
+        raise FileNotFoundError(f"Model weights not found: {weights_path}")
+
+    model = YOLO(str(weights_path))
+
+    for idx, img_path in enumerate(images, start=1):
+        inf_start = time.perf_counter()
+        pil_img = Image.open(img_path)
+        pil_img = tiff2png.ensure_png_ready(pil_img).convert("RGB")
+        imgsz = pil_img.size
+        pred_results = model.predict(
+            source=pil_img,
+            conf=conf_thres,
+            device=device,
+            verbose=False,
+            iou=iou_thres,
+            imgsz=imgsz,
+            augment=augment,
+            half=True,
+        )
+        inf_time = time.perf_counter() - inf_start
+        print(f"[计时] 推理耗时 {inf_time:.2f}s")
+
+        width, height = imgsz
+        output_dir = output_root / img_path.stem
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if not pred_results:
+            print(f"[警告] {img_path} 未返回预测结果，跳过。")
+            continue
+        pred_boxes = prediction_boxes(pred_results[0])
+        label_path = find_label_file(img_path) if use_label else None
+        gt_label_for_vis = str(label_path) if label_path is not None else None
+
+        pred_label_path = (output_dir / img_path.name).with_suffix(".txt")
+        pred_boxes_for_label = [
+            {"xyxy": (x1, y1, x2, y2), "cls": cls_idx} for x1, y1, x2, y2, _, cls_idx in pred_boxes
+        ]
+        write_label_file(
+            Path(pred_label_path),
+            pred_boxes_for_label,
+            width,
+            height,
+        )
+        overlay_tiff_path = None
+        if output_tiff:
+            overlay_tiff_path = save_detection_tiff(
+                source_tiff=img_path,
+                boxes=pred_boxes,
+                output_path=output_dir / f"{img_path.stem}_pred.tiff",
+            )
+            print(f"Detection overlay TIFF saved to: {overlay_tiff_path}")
+        if visualize:
+            show_img(
+                tiff_path=str(img_path),
+                pred_label_path=str(pred_label_path),
+                gt_label_path=gt_label_for_vis,
+                use_latlon=use_latlon,
+                export_patches=export_patches,
+                patch_output_dir=output_root,
+                patch_size=patch_size,
+                config=config,
+            )
+
+        results.append(
+            {
+                "image": img_path,
+                "weights": weights_path,
+                "output": overlay_tiff_path,
+                "pred_label": Path(pred_label_path),
+                "gt_label": label_path,
+                "detections": len(pred_boxes),
+            }
+        )
+    print(f"[计时] 批量总耗时 {time.perf_counter() - batch_start:.2f}s")
     return results
 
 
@@ -115,18 +213,18 @@ def main() -> None:
         test_device=args.device,
         visualization_target_patch_size=args.patch_size,
         target_patch_size=args.patch_size,
+        show_pred_panel=args.show_pred_panel,
     )
     if args.no_label:
         config.update_config(use_label=False)
 
     visualize = resolve_visualize(args, config)
-    results = run_batch_test(config=config)
+    results = run_batch_test(config=config, visualize=visualize)
     if not results:
         return
 
     print(f"\n批量推理完成，共处理 {len(results)} 张。")
-    for item in results:
-        print(f"- {item['image']} -> {item['output']}")
+
 
 
 if __name__ == "__main__":

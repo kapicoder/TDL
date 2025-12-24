@@ -13,7 +13,13 @@ try:
     from pyproj import Transformer
 except Exception:  # pragma: no cover - optional dependency
     Transformer = None  # type: ignore
-‘
+"""
+单图推理脚本，用于对单个 TIFF 图像进行目标检测推理和可视化。
+支持的图像格式仅包括 TIFF。
+可选地加载与图像对应的标签文件进行对比。
+推理结果只包含整张大图的识别结果，不包含裁剪之后的子图结果。
+可视化结果会输出为 PNG 格式，并生成对应的标注文本文件。
+"""
 def class_color(index: int) -> Tuple[int, int, int]:
     """Return a deterministic color for the given class index."""
     palette = [
@@ -36,7 +42,82 @@ def measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont
     return draw.textsize(text, font=font)
 
 
+def _prepare_overlay_image(img_array: np.ndarray) -> np.ndarray:
+    """Convert rasterio (C, H, W) array to uint8 RGB (H, W, 3) for drawing."""
+    arr = img_array.astype(np.uint8)
+    if arr.ndim == 2:
+        arr = np.expand_dims(arr, axis=0)
+    channels, _, _ = arr.shape
+    if channels == 1:
+        arr = np.repeat(arr, 3, axis=0)
+    elif channels == 2:
+        arr = np.concatenate([arr, arr[:1]], axis=0)
+    elif channels > 3:
+        arr = arr[:3, :, :]
+    return arr.transpose(1, 2, 0)
 
+
+def _clip_box_to_image(
+    x1: float, y1: float, x2: float, y2: float, width: int, height: int
+) -> Optional[Tuple[float, float, float, float]]:
+    """Ensure boxes stay within image bounds; return None if invalid."""
+    x1_c = max(0.0, min(float(width - 1), x1))
+    y1_c = max(0.0, min(float(height - 1), y1))
+    x2_c = max(0.0, min(float(width), x2))
+    y2_c = max(0.0, min(float(height), y2))
+    if x2_c <= x1_c or y2_c <= y1_c:
+        return None
+    return x1_c, y1_c, x2_c, y2_c
+
+
+def save_detection_tiff(
+    source_tiff: Path,
+    boxes: List[Tuple[float, float, float, float, float, int]],
+    output_path: Path,
+) -> Path:
+    """Save a 16-bit single-band TIFF (I;16) with detection boxes burned into the first band, keeping geoinfo."""
+    with rasterio.open(source_tiff) as src:
+        # 仅取首个波段，输出保持 I;16 模式
+        band1 = src.read(1)
+        profile = src.profile.copy()
+
+    # 转为 uint16，避免负值
+    overlay = np.clip(band1, 0, np.iinfo(np.uint16).max).astype(np.uint16, copy=True)
+    height, width = overlay.shape
+    val_draw = np.iinfo(np.uint16).max  # use pure white for box strokes
+    thickness = 3
+    for x1, y1, x2, y2, _, cls_idx in boxes:
+        clipped = _clip_box_to_image(x1, y1, x2, y2, width, height)
+        if clipped is None:
+            continue
+        cx1, cy1, cx2, cy2 = clipped
+        x1_i, y1_i, x2_i, y2_i = map(int, (np.floor(cx1), np.floor(cy1), np.ceil(cx2), np.ceil(cy2)))
+        x1_i = max(0, min(width - 1, x1_i))
+        y1_i = max(0, min(height - 1, y1_i))
+        x2_i = max(x1_i + 1, min(width, x2_i))
+        y2_i = max(y1_i + 1, min(height, y2_i))
+        overlay[y1_i:y1_i + thickness, x1_i:x2_i] = val_draw
+        overlay[max(0, y2_i - thickness):y2_i, x1_i:x2_i] = val_draw
+        overlay[y1_i:y2_i, x1_i:x1_i + thickness] = val_draw
+        overlay[y1_i:y2_i, max(0, x2_i - thickness):x2_i] = val_draw
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    for key in ("blockxsize", "blockysize", "tiled", "interleave", "compress"):
+        profile.pop(key, None)
+    profile.update(
+        driver="GTiff",
+        height=overlay.shape[0],
+        width=overlay.shape[1],
+        count=1,
+        dtype="uint16",
+    )
+    # 单波段灰度，移除可能遗留的 RGB/alpha 信息，保持地理元数据
+    profile["photometric"] = "MINISBLACK"
+    profile.pop("alpha", None)
+    profile.pop("colormap", None)
+    with rasterio.open(output_path, "w", **profile) as dst:
+        dst.write(overlay, 1)
+    return output_path
 
 
 def prediction_boxes(result) -> List[Tuple[float, float, float, float, float, int]]:
@@ -144,8 +225,8 @@ def show_img(
     output_dir.mkdir(parents=True, exist_ok=True)
     pred_png_path = output_dir / "predicted.png"
     annotation_txt_path = output_dir / "annotations.txt"
+    show_pred_panel=config["show_pred_panel"]  and pred_label_path is not None
     import time
-    time_start = time.time()
     # 打开 TIFF 文件
     with rasterio.open(tiff_path) as dataset:
         img = dataset.read()
@@ -163,14 +244,11 @@ def show_img(
         print(
             "Warning: TIFF file has no CRS; geographic coordinates will be reported in the original projection."
         )
-    time_end = time.time()
-    print(f"Loaded TIFF image in {time_end - time_start:.2f} seconds.")
     # 将图像转换为可显示的格式
     img = img.astype(np.uint8)
     display_img = img.transpose(1, 2, 0)
     time_start = time.time()
     # 载入预测和原始标签
-    show_pred_panel = pred_label_path is not None
     pred_boxes: List[dict] = []
     if show_pred_panel:
         pred_boxes = _load_boxes(pred_label_path, width, height)
@@ -194,14 +272,11 @@ def show_img(
     time_end = time.time()
     print(f"Generated visualization in {time_end - time_start:.2f} seconds.")
     # 组合标注文本到独立的 txt 文件
-    time_start = time.time()
     annotation_lines: List[str] = []
     if pred_lines_for_file:
         annotation_lines.extend(pred_lines_for_file)
     with annotation_txt_path.open("w", encoding="utf-8") as ann_fp:
         ann_fp.write("\n".join(annotation_lines))
-    time_end = time.time()
-    print(f"Wrote annotation file in {time_end - time_start:.2f} seconds.")
 def write_label_file(
     label_path: Path, boxes: List[dict], width: int, height: int
 ) -> int:
@@ -234,14 +309,17 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
     patch_size = int(patch_size_raw)
     use_latlon = config["use_latlon"] if config["use_latlon"] is not None else True
     export_patches = config["export_patches"] if config["export_patches"] is not None else True
+    output_tiff=config["output_tiff"] if config["output_tiff"] is not None else False
+    output_dir = output_root / image_path.stem
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
     if not weights_path.exists():
         raise FileNotFoundError(f"Model weights not found: {weights_path}")
-
+    output_dir.mkdir(parents=True, exist_ok=True)
     model = YOLO(str(weights_path))
     img = Image.open(image_path)
     img = tiff2png.ensure_png_ready(img).convert("RGB")
+    print("weights_path",weights_path)
     import time
     start_time = time.time()
     results = model.predict(
@@ -258,6 +336,7 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
     if not results:
         raise RuntimeError("Ultralytics did not return any prediction results.")
 
+    label_path: Optional[Path] = None
     result = results[0]
     with Image.open(image_path) as base_img:
         pred_boxes = prediction_boxes(result)
@@ -267,13 +346,9 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
 
         width, height = base_img.size
 
-    output_path = (output_root / image_path.name).with_suffix(".png")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-  
     print(f"Detections: {len(pred_boxes)}")
-    print(f"Comparison saved to: {output_path}")
     gt_label_for_vis = str(label_path) if label_path is not None else None
-    pred_label_path = (output_root / image_path.stem / image_path.name).with_suffix(".txt")
+    pred_label_path = (output_dir / image_path.name).with_suffix(".txt")
     pred_boxes_for_label = [
         {"xyxy": (x1, y1, x2, y2), "cls": cls_idx} for x1, y1, x2, y2, _, cls_idx in pred_boxes
     ]
@@ -283,6 +358,15 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
         width,
         height,
     )
+    if output_tiff:
+        overlay_tiff_path = save_detection_tiff(
+            source_tiff=image_path,
+            boxes=pred_boxes,
+            output_path=output_dir / f"{image_path.stem}_pred.tiff",
+        )
+        print(f"Detection overlay TIFF saved to: {overlay_tiff_path}")
+    else:
+        overlay_tiff_path = None
     if visualize:
         print("Generating visualization...")
         show_img(
@@ -299,7 +383,7 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
     return {
         "image": image_path,
         "weights": weights_path,
-        "output": output_path,
+        "output": overlay_tiff_path,
         "pred_label": Path(pred_label_path),
         "gt_label": label_path,
         "detections": len(pred_boxes),
@@ -325,8 +409,9 @@ def main() -> None:
     parser.add_argument("--patch_size", type=int, help="Patch size for visualization export.")
     parser.add_argument("--no_label", action="store_true", help="Skip loading ground-truth label.")
     parser.add_argument("--no_visual", action="store_true",default=False, help="Disable visualization export.")
+    parser.add_argument("--output_tiff",action="store_true",default=False, help="Save overlay TIFF.")
     args = parser.parse_args()
-
+    parser.add_argument("--show_pred_panel",action="store_true",default=True, help="Show prediction panel.")
     config = CONFIG()
     overrides: Dict[str, object] = {
         "test_img_path": args.test_img_path,
@@ -336,6 +421,8 @@ def main() -> None:
         "test_iou": args.test_iou,
         "test_device": args.device,
         "target_patch_size": args.patch_size,
+        "output_tiff": args.output_tiff,
+        "show_pred_panel": args.show_pred_panel
     }
     config.update_config(**overrides)
     if args.no_label:

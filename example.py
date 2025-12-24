@@ -31,7 +31,7 @@ def main() -> None:
     # 调用 batch_split API
     try:
         print("开始请求调用并执行api")
-        resp = request_batch_split(images_dir="dataset/AIR-SARShip-1.0/test/images",output_dir="./TDL_results", test_visualize=False)
+        resp = request_batch_split(images_dir="dataset/AIR-SARShip-1.0/test/images",output_dir="./TDL_results", test_visualize=True)
         print("API 返回：")
         print(json.dumps(resp, ensure_ascii=False, indent=2))
         # 输出容器日志到终端

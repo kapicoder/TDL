@@ -74,7 +74,7 @@ def request_batch_split(
     output_dir: str | None = None,
     patch_output_dir: str | None = None,
     device: str | None = None,
-    test_visualize: bool = False,
+    test_visualize: bool = True,
     no_label: bool = False,
     conf: float | None = None,
     iou: float | None = None,
@@ -82,6 +82,7 @@ def request_batch_split(
     verify_ssl: bool = True,
     timeout: int = 300,
     config: CONFIG | None = None,
+    show_pred_panel: bool | None = None,
 ) -> Dict[str, Any]:
     """
     高层封装：通过函数传参构造 payload 并发起请求，返回解析后的 JSON，默认使用 config.json 的配置。
@@ -98,7 +99,7 @@ def request_batch_split(
         payload["visualization_target_patch_size"] = patch_size or cfg["visualization_target_patch_size"]
     payload["test_visualize"] = test_visualize
     payload["no_label"] = no_label
-
+    payload["show_pred_panel"]= show_pred_panel
     resp = call_batch_split(
         base_url=base_url,
         payload=payload,

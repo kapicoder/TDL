@@ -6,7 +6,7 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
-
+import cv2
 try:
     from pyproj import Transformer
 except Exception:  # pragma: no cover - optional dependency
@@ -258,24 +258,85 @@ def _save_panel_image(
     annotate_ids: bool = False,
     id_prefix: str = "#",
 ):
-    """Render a single panel image and persist it to disk."""
-    fig, ax = plt.subplots(figsize=(8, 8))
-    bbox_info_lines = _draw_panel(
-        ax,
-        image_array,
-        boxes,
-        title=title,
-        transform_affine=transform_affine,
-        geo_transformer=geo_transformer,
-        use_latlon=use_latlon,
-        edge_color=edge_color,
-        empty_message=empty_message,
-        annotate_ids=annotate_ids,
-        id_prefix=id_prefix,
-        write_info_text=False,
-    )
-    fig.savefig(save_path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
+    """Render a single panel image and persist it to disk using OpenCV for speed."""
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    prepared = _prepare_image_for_save(image_array)
+    if prepared.ndim == 2:
+        prepared = np.stack([prepared] * 3, axis=-1)
+    elif prepared.shape[2] == 4:
+        prepared = prepared[:, :, :3]
+    prepared = prepared.astype(np.uint8, copy=False)
+    # OpenCV expects BGR
+    img_bgr = cv2.cvtColor(prepared, cv2.COLOR_RGB2BGR)
+
+    def _color_to_bgr(name: str) -> tuple[int, int, int]:
+        colors = {
+            "red": (0, 0, 255),
+            "green": (0, 255, 0),
+            "lime": (0, 255, 0),
+            "orange": (0, 165, 255),
+            "blue": (255, 0, 0),
+            "gray": (128, 128, 128),
+            "grey": (128, 128, 128),
+            "yellow": (0, 255, 255),
+        }
+        return colors.get(name.lower(), (0, 165, 255))
+
+    bbox_info_lines: List[str] = []
+    if not boxes:
+        h, w = img_bgr.shape[:2]
+        center = (w // 2, h // 2)
+        cv2.putText(
+            img_bgr,
+            empty_message,
+            center,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            _color_to_bgr("gray"),
+            2,
+            cv2.LINE_AA,
+        )
+        cv2.imwrite(str(save_path), img_bgr)
+        return bbox_info_lines
+
+    warned_no_crs = False
+    color_bgr = _color_to_bgr(edge_color)
+    for idx, box in enumerate(boxes, start=1):
+        label_id = box.get("id", idx)
+        x1, y1, x2, y2 = box["x1"], box["y1"], box["x2"], box["y2"]
+        cv2.rectangle(
+            img_bgr,
+            (int(round(x1)), int(round(y1))),
+            (int(round(x2)), int(round(y2))),
+            color_bgr,
+            2,
+        )
+        if annotate_ids:
+            text_xy = (int(round(x1)), max(0, int(round(y1)) - 5))
+            cv2.putText(
+                img_bgr,
+                f"{id_prefix}{label_id}",
+                text_xy,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                color_bgr,
+                2,
+                cv2.LINE_AA,
+            )
+
+        if use_latlon and geo_transformer is not None:
+            cx = (x1 + x2) / 2.0
+            cy = (y1 + y2) / 2.0
+            center_lon, center_lat = pixel_to_lonlat(cx, cy, transform_affine, geo_transformer)
+            bbox_info_lines.append(
+                f"{id_prefix}{label_id} cls {box['cls']}: lat {center_lat:.6f}, lon {center_lon:.6f}"
+            )
+        elif use_latlon and not warned_no_crs:
+            warned_no_crs = True
+            print("CRS missing, cannot convert pixel coordinates to lon/lat.")
+
+    cv2.imwrite(str(save_path), img_bgr)
     return bbox_info_lines
 
 

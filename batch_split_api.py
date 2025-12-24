@@ -10,7 +10,9 @@ from test_batch import run_batch_test
 from utils.config import CONFIG
 
 app = Flask(__name__)
-
+"""
+对定位的api封装
+"""
 
 def _to_path(value: str | None) -> Path | None:
     if value is None or value == "":
@@ -29,10 +31,10 @@ def _build_config(payload: Dict[str, Any]) -> tuple[CONFIG, Path | None, bool]:
     patch_size = payload.get("patch_size")
     test_visualize = bool(payload.get("test_visualize", False))
     no_label = bool(payload.get("no_label", False))
-
+    show_pred_panel = payload.get("show_pred_panel", None)
     cfg.update_config(
         batch_test_img_path=images_dir,
-        test_visualize=not test_visualize,
+        test_visualize=test_visualize,
         test_weights_path=weights,
         test_output_path=visualization_patch_output_dir,
         test_conf=conf,
@@ -40,6 +42,7 @@ def _build_config(payload: Dict[str, Any]) -> tuple[CONFIG, Path | None, bool]:
         test_device=device,
         visualization_patch_output_dir=visualization_patch_output_dir,
         target_patch_size=patch_size,
+        show_pred_panel=show_pred_panel,
     )
     if no_label:
         cfg.update_config(use_label=False)
