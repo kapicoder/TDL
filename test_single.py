@@ -155,12 +155,8 @@ def show_img(
     
     #获得地理转化矩阵
     geo_transformer = None
-    if Transformer is None and use_latlon:
-        print(
-            "Warning: pyproj is not installed; install it to enable lon/lat conversion "
-            "(e.g., `pip install pyproj`)."
-        )
-    elif crs and Transformer is not None:
+
+    if crs and Transformer is not None:
         geo_transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
     elif use_latlon:
         print(
