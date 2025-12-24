@@ -1,13 +1,18 @@
 import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
-
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from ultralytics import YOLO  # type: ignore
 from utils import tiff2png
 from utils.config import CONFIG
-from utils.showtiff_withLabel import visual_img
-
+from utils.showtiff_withLabel import visual_img,_draw_panel,_load_boxes,_prepare_image_for_save,pixel_to_lonlat,_save_panel_image
+import matplotlib.pyplot as plt
+import rasterio
+try:
+    from pyproj import Transformer
+except Exception:  # pragma: no cover - optional dependency
+    Transformer = None  # type: ignore
 def class_color(index: int) -> Tuple[int, int, int]:
     """Return a deterministic color for the given class index."""
     palette = [
@@ -21,6 +26,7 @@ def class_color(index: int) -> Tuple[int, int, int]:
     return palette[index % len(palette)]
 
 
+
 def measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> Tuple[int, int]:
     """Return (width, height) for the provided text."""
     if hasattr(font, "getbbox"):
@@ -29,31 +35,7 @@ def measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont
     return draw.textsize(text, font=font)
 
 
-def draw_boxes(
-    image: Image.Image,
-    boxes: Sequence[Tuple[float, float, float, float, float, int]],
-    class_names: Dict[int, str],
-) -> Image.Image:
-    """Draw detections on the image."""
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
 
-    for x1, y1, x2, y2, score, cls_idx in boxes:
-        color = class_color(cls_idx)
-        draw.rectangle([(x1, y1), (x2, y2)], outline=color, width=3)
-
-        label = class_names.get(cls_idx, str(cls_idx))
-        caption = f"{label} {score:.2f}" if score >= 0 else label
-        text_w, text_h = measure_text(draw, caption, font)
-        text_x1 = x1
-        text_y1 = max(0.0, y1 - text_h - 6)
-        text_x2 = text_x1 + text_w + 6
-        text_y2 = text_y1 + text_h + 6
-
-        draw.rectangle([(text_x1, text_y1), (text_x2, text_y2)], fill=color)
-        draw.text((text_x1 + 3, text_y1 + 3), caption, fill="white", font=font)
-
-    return image
 
 
 def prediction_boxes(result) -> List[Tuple[float, float, float, float, float, int]]:
@@ -145,6 +127,84 @@ def _normalize_box(
     bh = (y2 - y1) / height
     return xc, yc, bw, bh
 
+
+def show_img(
+    tiff_path: str,
+    pred_label_path: str,
+    gt_label_path: Optional[str],
+    use_latlon: bool,
+    export_patches: bool,
+    patch_output_dir: Path,
+    patch_size: int,
+    config: CONFIG,
+) -> None:
+    # 输出路径定义
+    output_dir = Path(patch_output_dir or DEFAULT_PATCH_DIR) / Path(tiff_path).stem
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pred_png_path = output_dir / "predicted.png"
+    annotation_txt_path = output_dir / "annotations.txt"
+    import time
+    time_start = time.time()
+    # 打开 TIFF 文件
+    with rasterio.open(tiff_path) as dataset:
+        img = dataset.read()
+        transform_affine = dataset.transform
+        crs = dataset.crs
+        width = dataset.width
+        height = dataset.height
+    
+    #获得地理转化矩阵
+    geo_transformer = None
+    if Transformer is None and use_latlon:
+        print(
+            "Warning: pyproj is not installed; install it to enable lon/lat conversion "
+            "(e.g., `pip install pyproj`)."
+        )
+    elif crs and Transformer is not None:
+        geo_transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    elif use_latlon:
+        print(
+            "Warning: TIFF file has no CRS; geographic coordinates will be reported in the original projection."
+        )
+    time_end = time.time()
+    print(f"Loaded TIFF image in {time_end - time_start:.2f} seconds.")
+    # 将图像转换为可显示的格式
+    img = img.astype(np.uint8)
+    display_img = img.transpose(1, 2, 0)
+    time_start = time.time()
+    # 载入预测和原始标签
+    show_pred_panel = pred_label_path is not None
+    pred_boxes: List[dict] = []
+    if show_pred_panel:
+        pred_boxes = _load_boxes(pred_label_path, width, height)
+        for idx, box in enumerate(pred_boxes, start=1):
+            box["id"] = idx
+    if show_pred_panel:
+        pred_lines_for_file = _save_panel_image(
+            display_img,
+            pred_boxes,
+            title="Predicted Results",
+            save_path=pred_png_path,
+            transform_affine=transform_affine,
+            geo_transformer=geo_transformer,
+            use_latlon=use_latlon,
+            edge_color="orange",
+            empty_message="no predict label",
+            annotate_ids=True,
+        )
+    else:
+        pred_lines_for_file = []
+    time_end = time.time()
+    print(f"Generated visualization in {time_end - time_start:.2f} seconds.")
+    # 组合标注文本到独立的 txt 文件
+    time_start = time.time()
+    annotation_lines: List[str] = []
+    if pred_lines_for_file:
+        annotation_lines.extend(pred_lines_for_file)
+    with annotation_txt_path.open("w", encoding="utf-8") as ann_fp:
+        ann_fp.write("\n".join(annotation_lines))
+    time_end = time.time()
+    print(f"Wrote annotation file in {time_end - time_start:.2f} seconds.")
 def write_label_file(
     label_path: Path, boxes: List[dict], width: int, height: int
 ) -> int:
@@ -177,7 +237,6 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
     patch_size = int(patch_size_raw)
     use_latlon = config["use_latlon"] if config["use_latlon"] is not None else True
     export_patches = config["export_patches"] if config["export_patches"] is not None else True
-
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
     if not weights_path.exists():
@@ -186,6 +245,8 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
     model = YOLO(str(weights_path))
     img = Image.open(image_path)
     img = tiff2png.ensure_png_ready(img).convert("RGB")
+    import time
+    start_time = time.time()
     results = model.predict(
         source=img,
         conf=conf_thres,
@@ -195,6 +256,8 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
         iou=iou_thres,
         augment=augment,
     )
+    end_time = time.time()
+    print(f"Inference completed in {end_time - start_time:.2f} seconds.")
     if not results:
         raise RuntimeError("Ultralytics did not return any prediction results.")
 
@@ -224,14 +287,16 @@ def run_single_test(config: CONFIG, visualize: bool = True) -> Dict[str, object]
         height,
     )
     if visualize:
-        visual_img(
+        print("Generating visualization...")
+        show_img(
             tiff_path=str(image_path),
             pred_label_path=str(pred_label_path),
             gt_label_path=gt_label_for_vis,
             use_latlon=use_latlon,
             export_patches=export_patches,
-            patch_output_dir=patch_root,
+            patch_output_dir=output_root,
             patch_size=patch_size,
+            config=config,
         )
 
     return {
@@ -262,7 +327,7 @@ def main() -> None:
     parser.add_argument("--device", type=str, help="Device to perform inference on (defaults to config or cuda).")
     parser.add_argument("--patch_size", type=int, help="Patch size for visualization export.")
     parser.add_argument("--no_label", action="store_true", help="Skip loading ground-truth label.")
-    parser.add_argument("--no_visual", action="store_true", help="Disable visualization export.")
+    parser.add_argument("--no_visual", action="store_true",default=False, help="Disable visualization export.")
     args = parser.parse_args()
 
     config = CONFIG()
@@ -278,9 +343,11 @@ def main() -> None:
     config.update_config(**overrides)
     if args.no_label:
         config.update_config(use_label=False)
-
+    import time
+    start_time = time.time()
     run_single_test(config, visualize=not args.no_visual)
-
+    end_time = time.time()
+    print(f"Total processing time: {end_time - start_time:.2f} seconds.")
 
 if __name__ == "__main__":
     main()

@@ -1,26 +1,26 @@
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from test_single import run_single_test
 from utils.config import CONFIG
-"""
-批量推理脚本，用于对指定目录下的所有图像进行目标检测推理和可视化。图像送入 test_single.py 中的 run_single_test 函数处理。
-并且是将整张图像送入模型进行推理，而非切片后再推理。
-支持的图像格式包括 TIFF、PNG、JPG 等常见格式。
-"""
+
+TIFF_EXTS = {".tif", ".tiff"}
+
 
 def parse_args(config: CONFIG) -> argparse.Namespace:
-    """Parse CLI arguments with defaults from config.json."""
-    default_images_dir = config["batch_test_img_path"]
+    default_input = config["batch_test_img_path"] or config["test_img_path"]
+    default_path = Path(default_input) if default_input else None
     parser = argparse.ArgumentParser(
-        description="批量对目录中的 TIFF/PNG 进行单图推理与可视化（复用 test_single 逻辑）"
+        description="批量处理 TIFF 文件（支持单文件、目录及嵌套目录）"
     )
     parser.add_argument(
-        "--images-dir",
+        "--input",
         type=Path,
-        default=default_images_dir,
-        help="待推理影像所在目录（默认取 config.test_img_path 的目录）",
+        default=default_path,
+        help="单个 TIFF 文件或包含 TIFF 的目录（支持递归）",
     )
     parser.add_argument(
         "--weights",
@@ -42,38 +42,49 @@ def parse_args(config: CONFIG) -> argparse.Namespace:
         default=config["test_device"] or config["device"],
         help="推理设备（默认读取 config.test_device 或 device）",
     )
-    parser.add_argument("--patch-size", type=int, default=config["target_patch_size"], help="可视化子图尺寸")
-    parser.add_argument("--visualize", action="store_true", help="可视化")
+    parser.add_argument(
+        "--patch-size",
+        type=int,
+        default=config["visualization_target_patch_size"],
+        help="可视化子图尺寸",
+    )
+    parser.add_argument("--visualize", action="store_true", help="启用可视化")
+    parser.add_argument("--no-visualize", action="store_true", help="关闭可视化")
     parser.add_argument("--no-label", action="store_true", help="不加载原始标签")
     return parser.parse_args()
 
 
-def collect_images(images_dir: Path) -> List[Path]:
-    if not images_dir.exists():
-        raise FileNotFoundError(f"未找到图像目录: {images_dir}")
-    exts = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
+def collect_tiff_images(input_path: Path) -> List[Path]:
+    if not input_path.exists():
+        raise FileNotFoundError(f"未找到输入路径: {input_path}")
+    if input_path.is_file():
+        if input_path.suffix.lower() in TIFF_EXTS:
+            return [input_path]
+        raise ValueError(f"输入文件不是 TIFF: {input_path}")
     return sorted(
         p
-        for p in images_dir.rglob("*")
-        if p.is_file() and p.suffix.lower() in exts
+        for p in input_path.rglob("*")
+        if p.is_file() and p.suffix.lower() in TIFF_EXTS
     )
 
-def run_batch_convert(
+
+def resolve_visualize(args: argparse.Namespace, config: CONFIG) -> bool:
+    visualize = config["test_visualize"] if config["test_visualize"] is not None else False
+    if args.visualize:
+        visualize = True
+    if args.no_visualize:
+        visualize = False
+    return visualize
+
+
+def run_batch_test(
     config: CONFIG,
 ) -> List[Dict[str, object]]:
-    """
-    对指定目录下的影像逐张执行 test_single 的推理与可视化。
-
-    Returns:
-        逐张推理的结果列表，每个元素为 run_single_test 的返回字典。
-    """
-    images_dir: Optional[str] = config["batch_test_img_path"]
-    visualize: bool = config["test_visualize"]
-    imgs_dir = Path(images_dir) if images_dir is not None else None
-
-    images = collect_images(imgs_dir)
+    input_path=config["batch_test_img_path"]
+    visualize=config["test_visualize"]
+    images = collect_tiff_images(input_path)
     if not images:
-        print(f"目录 {imgs_dir} 下没有符合要求的图像。")
+        print(f"目录 {input_path} 下没有 TIFF 文件。")
         return []
 
     results: List[Dict[str, object]] = []
@@ -88,21 +99,24 @@ def main() -> None:
     config = CONFIG()
     args = parse_args(config)
 
+    if args.input is None:
+        raise ValueError("未提供输入路径，请使用 --input 指定 TIFF 文件或目录。")
+
     config.update_config(
-        batch_test_img_path=args.images_dir,
+        batch_test_img_path=args.input,
         test_weights_path=args.weights,
         test_output_path=args.output_dir,
         test_conf=args.conf,
         test_iou=args.iou,
         test_device=args.device,
+        visualization_target_patch_size=args.patch_size,
         target_patch_size=args.patch_size,
-        test_visualize=args.visualize,
     )
     if args.no_label:
         config.update_config(use_label=False)
 
-    results = run_batch_convert(config=config)
-
+    visualize = resolve_visualize(args, config)
+    results = run_batch_test(config=config)
     if not results:
         return
 

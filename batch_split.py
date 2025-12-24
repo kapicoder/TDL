@@ -16,7 +16,11 @@ from fast_split import (
     visual_img,
     write_label_file,
 )
-
+"""
+批量处理脚本，用于对指定目录下的所有图像进行目标检测推理和可视化。
+支持的图像格式包括 TIFF、PNG、JPG 等常见格式。
+送入推理的文本是经过裁剪的图像块，推理结果会合并回原图坐标系。
+"""
 def _collect_images(images_dir: Path, extensions: Iterable[str]) -> List[Path]:
     ext_set = {ext.lower() for ext in extensions}
     if images_dir.is_file():

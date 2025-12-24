@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 from flask import Flask, jsonify, request
 
-from batch_convert import run_batch_convert
+from test_batch import run_batch_test
 from utils.config import CONFIG
 
 app = Flask(__name__)
@@ -61,7 +61,7 @@ def run_batch_split() -> Any:
     config = _build_config(payload)
 
     # try:
-    results = run_batch_convert(
+    results = run_batch_test(
         config=config,
     )
     if not results:

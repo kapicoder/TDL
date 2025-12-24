@@ -41,10 +41,10 @@
 
   "pretrained_model": {
     "?pretrained_model_path": "The pre_trained_model uesd for fine-tuning or testing",
-    "pretrained_model_path": "yolo11x.pt",
+    "pretrained_model_path": "model/best_300epoch_yolo11n.pt",
 
     "?pretrained_model_name": "The pre_trained_model name",
-    "pretrained_model_name": "yolo11x"
+    "pretrained_model_name": "model/best_300epoch_yolo11n"
   },
 
   "train": {
@@ -170,7 +170,7 @@
       "test_output_path": "result/test_results",
 
       "?test_weights_path": "The model weights path used for testing",
-      "test_weights_path": "result/train_result/AIR-SARShip_yolo11x_249epochs/weights/best.pt",
+      "test_weights_path": "model/best_location_yolo11n.pt",
 
       "?test_conf": "Confidence threshold for single-image test",
       "test_conf": 0.25,
@@ -200,7 +200,7 @@
     "visualization_patch_output_dir": "./result/test_results/",
 
     "?export_patches": "Whether to export detection-centered patches",
-    "export_patches": true,
+    "export_patches": false,
 
     "?use_latlon": "Whether to output lon/lat when CRS is available during visualization",
     "use_latlon": true
